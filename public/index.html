@@ -260,7 +260,8 @@
         }
     </style>
 
-    <script src="three.min.js"></script>
+    <script src="./three.min.js"></script>
+    
     <script>
         (function () {
             if (window.showToast) return;
@@ -805,7 +806,7 @@ G1 X20 Y20 E20</textarea>
         document.body.appendChild(renderer.domElement);
 
         let BED_WIDTH = 220, BED_DEPTH = 220, MAX_HEIGHT = 380;
-        let maxModelZ = 0; // Hoisted to avoid TDZ error
+        let maxModelZ = 0; 
         const defaultCenter = new THREE.Vector3(BED_WIDTH / 2, 0, BED_DEPTH / 2);
         let currentCenter = defaultCenter.clone();
         let spherical = new THREE.Spherical(400, Math.PI / 3, -Math.PI / 4);
@@ -1155,7 +1156,6 @@ G1 X20 Y20 E20</textarea>
         let estTimeMs = 0;
         let estFilamentMm = 0;
         let estLayers = new Set();
-        // maxModelZ is hoisted above
         let progressDensity = new Array(100).fill(0);
         let layerMarkPercentages = [];
         let m108Flag = false;
@@ -2688,6 +2688,63 @@ G1 X20 Y20 E20</textarea>
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ============================================================
+        // 11. NODE.JS BRIDGE INJECTION
+        // ============================================================
+        const evtSource = new EventSource('/events');
+
+        evtSource.addEventListener('gcode', (e) => {
+            const data = JSON.parse(e.data);
+
+            // Filter out query commands handled by backend
+            if (data.line.startsWith('M105') || data.line.startsWith('M114') || data.line.startsWith('M119')) {
+                return;
+            }
+
+            // Log to the web terminal
+            logTerminal(`>> ${data.line}`, 'cmd');
+
+            const lines = data.line.split('\n');
+            for (let i = 0; i < lines.length; i++) {
+                const parsed = parseGCodeLine(lines[i], 0);
+                if (parsed) {
+                    // Clean the local queue if we were idle
+                    if (isStopped) {
+                        stepQueue = [];
+                        activeRing = [];
+                    }
+
+                    planCommand(parsed.command, parsed.words, lines[i], 0, parsed.stringData);
+
+                    // Force start the animation loop
+                    if (stepQueue.length > 0 || activeRing.length > 0) {
+                        if (isStopped) {
+                            isStopped = false;
+                            isPaused = false;
+                            isAnimating = true;
+                            isSingleStep = false;
+                            activeStep = null;
+                            lastFrameTime = performance.now();
+                            jobStartTime = performance.now();
+
+                            // Log OK to web terminal
+                            logTerminal("ok", "ok");
+                        }
+                        totalSteps = stepQueue.length + activeRing.length;
+                    }
+                }
+            }
+            updateUIState();
+        });
+
+        // Sync real-time temperature and position state from backend
+        evtSource.addEventListener('state', (e) => {
+            const state = JSON.parse(e.data);
+            // Optional: Update the front-end temperature display if needed
+            // targetHotend = state.hotendTarget;
+            // targetBed = state.bedTarget;
         });
     </script>
 </body>

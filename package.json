@@ -1,0 +1,10 @@
+{
+  "name": "star-simulation",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Node.js Bridge & TCP Server for 3D Printer Simulator",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
