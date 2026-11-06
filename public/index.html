@@ -1,267 +1,738 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <title>3D Printer Simulator</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: sans-serif; background: #1a1a1a; color: #fff; user-select: none; }
-        
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            user-select: none;
+        }
+
+        /* Add user-select to allow copying terminal text */
+        #terminal-output,
+        #terminal-output * {
+            user-select: text !important;
+            -webkit-user-select: text !important;
+            cursor: text;
+        }
+
         /* Control Panel Container */
-        #control-panel { 
-            position: absolute; 
-            top: 10px; left: 10px; bottom: 10px;
-            background: rgba(30,30,30,0.95); 
-            padding: 12px; border-radius: 8px; 
+        #control-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            bottom: 10px;
+            background: rgba(30, 30, 30, 0.95);
+            padding: 12px;
+            border-radius: 8px;
             width: 380px;
-            z-index: 10; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.5); 
-            overflow-y: auto; 
-            border: 1px solid #444; 
-            font-size: 12px; 
-            transition: opacity 0.3s, transform 0.3s; 
+            z-index: 10;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+            overflow-y: auto;
+            border: 1px solid #444;
+            font-size: 12px;
+            transition: opacity 0.3s, transform 0.3s;
         }
-        #control-panel.panel-right { left: auto; right: 10px; transform-origin: right center; }
-        #control-panel.panel-right.collapsed { transform: translateX(50px) scale(0.9); }
 
-        #control-panel::-webkit-scrollbar { width: 6px; }
-        #control-panel::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
-        #control-panel.collapsed { opacity: 0; pointer-events: none; transform: translateX(-50px) scale(0.9); }
-        
+        #control-panel.panel-right {
+            left: auto;
+            right: 10px;
+            transform-origin: right center;
+        }
+
+        #control-panel.panel-right.collapsed {
+            transform: translateX(50px) scale(0.9);
+        }
+
+        #control-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #control-panel::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 3px;
+        }
+
+        #control-panel.collapsed {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(-50px) scale(0.9);
+        }
+
         /* Sticky Header for Panel */
-        .header { 
-            position: sticky; top: -12px; 
-            background: rgba(30,30,30,0.98); 
-            z-index: 100; padding: 12px 0 8px 0; 
-            margin-top: -12px; margin-bottom: 8px;
-            border-bottom: 1px solid #555; 
-            display: flex; justify-content: space-between; align-items: center; 
+        .header {
+            position: sticky;
+            top: -12px;
+            background: rgba(30, 30, 30, 0.98);
+            z-index: 100;
+            padding: 12px 0 8px 0;
+            margin-top: -12px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #555;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .header h3 { margin: 0; font-size: 15px; }
-        .header-controls { display: flex; gap: 6px; align-items: center; }
-        
+
+        .header h3 {
+            margin: 0;
+            font-size: 15px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
         /* Unified Top Buttons */
-        .top-btn { 
-            background: #333; width: 24px; height: 24px; padding: 0;
-            display: flex; align-items: center; justify-content: center; 
-            font-size: 12px; font-weight: bold;
-            border-radius: 4px; cursor: pointer; 
-            border: 1px solid #555; color: #ddd;
-            transition: all 0.2s; box-sizing: border-box;
+        .top-btn {
+            background: #333;
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid #555;
+            color: #ddd;
+            transition: all 0.2s;
+            box-sizing: border-box;
         }
-        .top-btn:hover { background: #555; color: #fff; border-color: #777; }
-        
+
+        .top-btn:hover {
+            background: #555;
+            color: #fff;
+            border-color: #777;
+        }
+
         /* Progress Bar & Layer Marks */
-        .progress-wrapper { position: relative; margin-bottom: 12px; }
+        .progress-wrapper {
+            position: relative;
+            margin-bottom: 12px;
+        }
+
         .progress-container {
-            height: 14px; background: #111; border-radius: 4px; 
-            position: relative; overflow: hidden;
-            box-shadow: inset 0 0 0 1px #333;
-        }
-        
-        /* Semi-transparent progress fill so histogram shows through */
-        #main-progress-bar { 
-            height: 100%; width: 0%; 
-            background: rgba(0, 122, 204, 0.6); 
-            transition: width 0.1s linear; 
-            position: absolute; top: 0; left: 0; 
-            border-radius: 3px 0 0 3px; z-index: 2; 
-        }
-        
-        /* Instruction Density Blocks */
-        #model-layer-marks { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 1; }
-        .layer-block { 
-            position: absolute; top: 0; bottom: 0; 
-            background: rgba(255, 255, 255, 0.85); /* Pure white block for density */
-        }
-        /* Dark tick mark to stand out on white/blue */
-        .layer-tick { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(0, 0, 0, 0.4); z-index: 3; }
-
-        #progress-text {
-            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 10px; font-weight: bold; color: #fff; z-index: 4;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.8); pointer-events: none;
-        }
-
-        #status { font-size: 11px; color: #4caf50; font-family: monospace; line-height: 1.4; white-space: pre; background: #000; padding: 8px; border-radius: 4px; border: 1px solid #333; margin-bottom: 10px; overflow: hidden;}
-        
-        details { background: #222; border: 1px solid #444; border-radius: 4px; margin-bottom: 8px; transition: opacity 0.3s; }
-        summary { padding: 6px; cursor: pointer; font-weight: bold; background: #333; outline: none; user-select: none; font-size: 12px; border-radius: 3px; }
-        summary:hover { background: #444; }
-        .param-group { padding: 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-items: center; }
-        .param-group label { color: #bbb; font-size: 11px; }
-        .param-group input[type="text"], .param-group input[type="number"], .param-group select { width: 100%; padding: 3px; background: #111; border: 1px solid #555; color: #fff; box-sizing: border-box; border-radius: 2px; font-size: 11px;}
-        .param-group input[type="checkbox"] { margin: 0; justify-self: start; }
-        
-        /* Editor Wrapper */
-        .editor-wrapper {
-            display: flex; position: relative; height: 120px; 
-            background: #111; border: 1px solid #555; border-radius: 4px; 
-            margin-bottom: 8px; overflow: hidden;
-        }
-        .line-numbers {
-            width: 35px; background: #1a1a1a; color: #888; 
-            text-align: right; padding: 6px 4px 6px 0; 
-            font-family: monospace; font-size: 11px; line-height: 15.4px;
-            overflow: hidden; user-select: none; border-right: 1px solid #333;
-        }
-        #gcode-input {
-            flex: 1; background: transparent; color: #fff; padding: 6px; 
-            font-family: monospace; font-size: 11px; line-height: 15.4px;
-            border: none; resize: none; outline: none; white-space: pre; 
-            overflow-y: scroll; overflow-x: auto; scrollbar-width: thin;
-        }
-        #gcode-input::-webkit-scrollbar { width: 8px; height: 8px; }
-        #gcode-input::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
-        #gcode-input::-webkit-scrollbar-corner { background: #111; }
-        
-        .line-highlight {
-            position: absolute; left: 35px; right: 0; height: 15.4px;
-            background: rgba(255, 213, 79, 0.2); border-left: 2px solid #ffd54f;
-            pointer-events: none; display: none;
-        }
-
-        /* Buttons Layout */
-        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
-        .btn-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 8px; }
-        button { padding: 6px; background: #007acc; border: none; color: white; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 12px; transition: background 0.2s; display: flex; justify-content: center; align-items: center; gap: 4px; width: 100%; box-sizing: border-box;}
-        button:hover { background: #005999; }
-        button:disabled { background: #444; color: #888; cursor: not-allowed; }
-        button.secondary { background: #444; }
-        button.secondary:hover:not(:disabled) { background: #555; }
-        button.danger { background: #d32f2f; }
-        button.danger:hover:not(:disabled) { background: #b71c1c; }
-        button.primary { background: #ff9800; color: #fff; }
-        button.primary:hover:not(:disabled) { background: #e68a00; }
-        
-        .jog-panel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 6px; }
-        .jog-panel button { padding: 4px; font-size: 11px; }
-        .jog-panel .home-btn { background: #ff9800; grid-column: span 3; color: #fff;}
-        
-        #file-upload { display: none; }
-        .disabled-panel { opacity: 0.4; pointer-events: none; user-select: none; }
-
-        /* Stats Panel */
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 6px; font-size: 11px; color: #aaa; }
-        .stats-grid div { background: #111; padding: 4px; border-radius: 2px; border: 1px solid #333; }
-        .stats-val { color: #00d4ff; font-weight: bold; font-family: monospace; }
-
-        /* Terminal */
-        #terminal-output { background: #000; color: #ccc; font-family: monospace; font-size: 11px; height: 100px; overflow-y: auto; padding: 4px; border-radius: 4px; border: 1px solid #333; margin-bottom: 4px; white-space: pre-wrap; }
-        .term-cmd { color: #00d4ff; }
-        .term-err { color: #ff5252; }
-        .term-ok { color: #4caf50; }
-        .term-input-row { display: flex; gap: 4px; }
-        .term-input-row input { flex: 1; background: #111; border: 1px solid #555; color: #fff; padding: 4px; border-radius: 4px; font-family: monospace; font-size: 11px; }
-        .term-input-row button { width: auto; padding: 4px 8px; }
-
-        /* Slider */
-        .slider-container { padding: 6px; display: flex; flex-direction: column; gap: 4px; }
-        .slider-header { display: flex; justify-content: space-between; font-size: 11px; color: #aaa; }
-        .slider-container input[type="range"] { width: 100%; }
-
-        /* Slice track: model-height fill + clipping handle share the same bar */
-        .slice-progress-track {
-            position: relative; height: 14px;
-            background: #111; border-radius: 4px;
+            height: 14px;
+            background: #111;
+            border-radius: 4px;
+            position: relative;
             overflow: hidden;
             box-shadow: inset 0 0 0 1px #333;
         }
+
+        /* Semi-transparent progress fill so histogram shows through */
+        #main-progress-bar {
+            height: 100%;
+            width: 0%;
+            background: rgba(0, 122, 204, 0.6);
+            transition: width 0.1s linear;
+            position: absolute;
+            top: 0;
+            left: 0;
+            border-radius: 3px 0 0 3px;
+            z-index: 2;
+        }
+
+        /* Instruction Density Blocks */
+        #model-layer-marks {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .layer-block {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.85);
+            /* Pure white block for density */
+        }
+
+        /* Dark tick mark to stand out on white/blue */
+        .layer-tick {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 3;
+        }
+
+        #progress-text {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: #fff;
+            z-index: 4;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+        }
+
+        #status {
+            font-size: 11px;
+            color: #4caf50;
+            font-family: monospace;
+            line-height: 1.4;
+            white-space: pre;
+            background: #000;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #333;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+
+        details {
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            transition: opacity 0.3s;
+        }
+
+        summary {
+            padding: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            background: #333;
+            outline: none;
+            user-select: none;
+            font-size: 12px;
+            border-radius: 3px;
+        }
+
+        summary:hover {
+            background: #444;
+        }
+
+        .param-group {
+            padding: 6px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .param-group label {
+            color: #bbb;
+            font-size: 11px;
+        }
+
+        .param-group input[type="text"],
+        .param-group input[type="number"],
+        .param-group select {
+            width: 100%;
+            padding: 3px;
+            background: #111;
+            border: 1px solid #555;
+            color: #fff;
+            box-sizing: border-box;
+            border-radius: 2px;
+            font-size: 11px;
+        }
+
+        .param-group input[type="checkbox"] {
+            margin: 0;
+            justify-self: start;
+        }
+
+        /* Editor Wrapper */
+        .editor-wrapper {
+            display: flex;
+            position: relative;
+            height: 120px;
+            background: #111;
+            border: 1px solid #555;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            overflow: hidden;
+        }
+
+        .line-numbers {
+            width: 35px;
+            background: #1a1a1a;
+            color: #888;
+            text-align: right;
+            padding: 6px 4px 6px 0;
+            font-family: monospace;
+            font-size: 11px;
+            line-height: 15.4px;
+            overflow: hidden;
+            user-select: none;
+            border-right: 1px solid #333;
+        }
+
+        #gcode-input {
+            flex: 1;
+            background: transparent;
+            color: #fff;
+            padding: 6px;
+            font-family: monospace;
+            font-size: 11px;
+            line-height: 15.4px;
+            border: none;
+            resize: none;
+            outline: none;
+            white-space: pre;
+            overflow-y: scroll;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+
+        #gcode-input::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        #gcode-input::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 4px;
+        }
+
+        #gcode-input::-webkit-scrollbar-corner {
+            background: #111;
+        }
+
+        .line-highlight {
+            position: absolute;
+            left: 35px;
+            right: 0;
+            height: 15.4px;
+            background: rgba(255, 213, 79, 0.2);
+            border-left: 2px solid #ffd54f;
+            pointer-events: none;
+            display: none;
+        }
+
+        /* Buttons Layout */
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .btn-grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        button {
+            padding: 6px;
+            background: #007acc;
+            border: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 12px;
+            transition: background 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 4px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        button:hover {
+            background: #005999;
+        }
+
+        button:disabled {
+            background: #444;
+            color: #888;
+            cursor: not-allowed;
+        }
+
+        button.secondary {
+            background: #444;
+        }
+
+        button.secondary:hover:not(:disabled) {
+            background: #555;
+        }
+
+        button.danger {
+            background: #d32f2f;
+        }
+
+        button.danger:hover:not(:disabled) {
+            background: #b71c1c;
+        }
+
+        button.primary {
+            background: #ff9800;
+            color: #fff;
+        }
+
+        button.primary:hover:not(:disabled) {
+            background: #e68a00;
+        }
+
+        .jog-panel {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            padding: 6px;
+        }
+
+        .jog-panel button {
+            padding: 4px;
+            font-size: 11px;
+        }
+
+        .jog-panel .home-btn {
+            background: #ff9800;
+            grid-column: span 3;
+            color: #fff;
+        }
+
+        #file-upload {
+            display: none;
+        }
+
+        .disabled-panel {
+            opacity: 0.4;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        /* Stats Panel */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            padding: 6px;
+            font-size: 11px;
+            color: #aaa;
+        }
+
+        .stats-grid div {
+            background: #111;
+            padding: 4px;
+            border-radius: 2px;
+            border: 1px solid #333;
+        }
+
+        .stats-val {
+            color: #00d4ff;
+            font-weight: bold;
+            font-family: monospace;
+        }
+
+        /* Terminal */
+        #terminal-output {
+            background: #000;
+            color: #ccc;
+            font-family: monospace;
+            font-size: 11px;
+            height: 100px;
+            overflow-y: auto;
+            padding: 4px;
+            border-radius: 4px;
+            border: 1px solid #333;
+            margin-bottom: 4px;
+            white-space: pre-wrap;
+        }
+
+        .term-cmd {
+            color: #00d4ff;
+        }
+
+        .term-err {
+            color: #ff5252;
+        }
+
+        .term-ok {
+            color: #4caf50;
+        }
+
+        .term-input-row {
+            display: flex;
+            gap: 4px;
+        }
+
+        .term-input-row input {
+            flex: 1;
+            background: #111;
+            border: 1px solid #555;
+            color: #fff;
+            padding: 4px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
+        .term-input-row button {
+            width: auto;
+            padding: 4px 8px;
+        }
+
+        /* Slider */
+        .slider-container {
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #aaa;
+        }
+
+        .slider-container input[type="range"] {
+            width: 100%;
+        }
+
+        /* Slice track: model-height fill + clipping handle share the same bar */
+        .slice-progress-track {
+            position: relative;
+            height: 14px;
+            background: #111;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: inset 0 0 0 1px #333;
+        }
+
         .slice-model-fill {
-            position: absolute; left: 0; top: 0; bottom: 0;
-            width: 0%; background: rgba(0, 122, 204, 0.45);
-            pointer-events: none; transition: width 0.3s;
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 0%;
+            background: rgba(0, 122, 204, 0.45);
+            pointer-events: none;
+            transition: width 0.3s;
         }
+
         #slice-slider {
-            position: absolute; left: 0; top: 0; right: 0; bottom: 0;
-            width: 100%; height: 100%;
-            -webkit-appearance: none; appearance: none;
-            background: transparent; outline: none; margin: 0; padding: 0;
-            cursor: pointer; z-index: 2;
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            outline: none;
+            margin: 0;
+            padding: 0;
+            cursor: pointer;
+            z-index: 2;
         }
-        #slice-slider::-webkit-slider-runnable-track { height: 14px; background: transparent; border: none; }
+
+        #slice-slider::-webkit-slider-runnable-track {
+            height: 14px;
+            background: transparent;
+            border: none;
+        }
+
         #slice-slider::-webkit-slider-thumb {
-            -webkit-appearance: none; appearance: none;
-            width: 14px; height: 14px;
-            background: #ff9800; border: 2px solid #fff;
-            border-radius: 50%; cursor: grab; box-sizing: border-box; margin-top: 0;
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #ff9800;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            cursor: grab;
+            box-sizing: border-box;
+            margin-top: 0;
         }
-        #slice-slider::-moz-range-track { height: 14px; background: transparent; border: none; }
+
+        #slice-slider::-moz-range-track {
+            height: 14px;
+            background: transparent;
+            border: none;
+        }
+
         #slice-slider::-moz-range-thumb {
-            width: 14px; height: 14px;
-            background: #ff9800; border: 2px solid #fff;
-            border-radius: 50%; cursor: grab; box-sizing: border-box;
+            width: 14px;
+            height: 14px;
+            background: #ff9800;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            cursor: grab;
+            box-sizing: border-box;
         }
 
         /* Modal */
         .modal {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: #2a2a2a; border: 1px solid #555; border-radius: 8px;
-            padding: 16px; z-index: 9999; display: none; width: 320px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8); color: #ddd;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #2a2a2a;
+            border: 1px solid #555;
+            border-radius: 8px;
+            padding: 16px;
+            z-index: 9999;
+            display: none;
+            width: 320px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            color: #ddd;
         }
-        .modal h4 { margin: 0 0 10px 0; color: #fff; }
-        .modal p { font-size: 12px; margin: 6px 0; line-height: 1.4; }
-        .modal .code { font-family: monospace; color: #00d4ff; background: #111; padding: 2px 4px; border-radius: 3px; }
-        .modal .close-btn { margin-top: 12px; background: #555; }
+
+        .modal h4 {
+            margin: 0 0 10px 0;
+            color: #fff;
+        }
+
+        .modal p {
+            font-size: 12px;
+            margin: 6px 0;
+            line-height: 1.4;
+        }
+
+        .modal .code {
+            font-family: monospace;
+            color: #00d4ff;
+            background: #111;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .modal .close-btn {
+            margin-top: 12px;
+            background: #555;
+        }
 
         /* ==========================================
            Refined Gooey Drag System
            ========================================== */
         #goo-container {
-            position: fixed; top: 0; left: 0;
-            width: 100vw; height: 100vh;
-            pointer-events: none; z-index: 998;
-            display: none; filter: url('#goo');
-            will-change: filter; 
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 998;
+            display: none;
+            filter: url('#goo');
+            will-change: filter;
         }
-        #goo-container.show { display: block; }
+
+        #goo-container.show {
+            display: block;
+        }
 
         .goo-blob {
-            position: absolute; top: 0; left: 0;
-            width: 48px; height: 48px;
-            border-radius: 50%; background: #2a2a2a; 
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #2a2a2a;
             transform-origin: center center;
             will-change: transform;
         }
 
         #ball-handler {
-            position: fixed; width: 48px; height: 48px;
-            top: 0; left: 0; z-index: 1000;
-            display: none; cursor: grab;
+            position: fixed;
+            width: 48px;
+            height: 48px;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            display: none;
+            cursor: grab;
             border-radius: 50%;
             box-shadow: 0 0 15px rgba(0, 212, 255, 0.2), inset 0 0 0 1.5px rgba(0, 212, 255, 0.6);
             transform: translate(20px, 20px);
             background: rgba(42, 42, 42, 0.8);
             transition: box-shadow 0.2s, background 0.2s;
         }
-        #ball-handler.show { display: block; }
-        #ball-handler:active { cursor: grabbing; }
+
+        #ball-handler.show {
+            display: block;
+        }
+
+        #ball-handler:active {
+            cursor: grabbing;
+        }
 
         #ball-handler.dragging {
             box-shadow: 0 0 15px rgba(0, 212, 255, 0.4), inset 0 0 0 1.5px rgba(0, 212, 255, 0.8);
-            background: rgba(42, 42, 42, 0.5); 
+            background: rgba(42, 42, 42, 0.5);
         }
 
         .spring-anim {
             transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
         }
 
-        .progress-ring { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: rotate(-90deg); pointer-events: none; }
-        .progress-ring__circle-bg { fill: transparent; stroke: rgba(0,0,0,0.2); stroke-width: 3; }
-        .progress-ring__circle { fill: transparent; stroke: #00d4ff; stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset 0.3s ease; }
-        
-        .ball-text { 
-            position: absolute; top: 50%; left: 50%; 
-            transform: translate(-50%, -50%); 
-            font-size: 14px; font-weight: bold; color: #fff; 
-            text-shadow: 0 1px 3px rgba(0,0,0,0.8); 
-            white-space: nowrap; pointer-events: none;
+        .progress-ring {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+            pointer-events: none;
+        }
+
+        .progress-ring__circle-bg {
+            fill: transparent;
+            stroke: rgba(0, 0, 0, 0.2);
+            stroke-width: 3;
+        }
+
+        .progress-ring__circle {
+            fill: transparent;
+            stroke: #00d4ff;
+            stroke-width: 3;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.3s ease;
+        }
+
+        .ball-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+            white-space: nowrap;
+            pointer-events: none;
         }
     </style>
 
     <script src="./three.min.js"></script>
-    
+    <script src="./tween.umd.js"></script>
+
     <script>
         (function () {
             if (window.showToast) return;
@@ -315,6 +786,7 @@
         })();
     </script>
 </head>
+
 <body>
 
     <!-- SVG Gooey Filter Definition -->
@@ -339,8 +811,10 @@
 
     <div id="ball-handler">
         <svg class="progress-ring" width="48" height="48">
-            <circle class="progress-ring__circle-bg" stroke="rgba(0,0,0,0.2)" stroke-width="3" fill="transparent" r="20" cx="24" cy="24"/>
-            <circle class="progress-ring__circle" stroke="#00d4ff" stroke-width="3" fill="transparent" r="20" cx="24" cy="24" id="progress-ring-circle"/>
+            <circle class="progress-ring__circle-bg" stroke="rgba(0,0,0,0.2)" stroke-width="3" fill="transparent" r="20"
+                cx="24" cy="24" />
+            <circle class="progress-ring__circle" stroke="#00d4ff" stroke-width="3" fill="transparent" r="20" cx="24"
+                cy="24" id="progress-ring-circle" />
         </svg>
         <div class="ball-text" id="ball-percent">0%</div>
     </div>
@@ -355,9 +829,9 @@
                 <div class="top-btn" id="btn-collapse" title="折叠面板">➖</div>
             </div>
         </div>
-        
+
         <div id="status">Marlin Simulation...</div>
-        
+
         <div class="progress-wrapper">
             <div class="progress-container">
                 <div id="main-progress-bar"></div>
@@ -367,20 +841,24 @@
         </div>
 
         <div class="btn-grid">
-            <button id="btn-import" class="secondary" onclick="document.getElementById('file-upload').click()">📂 <span data-i18n="import">导入</span></button>
+            <button id="btn-import" class="secondary" onclick="document.getElementById('file-upload').click()">📂 <span
+                    data-i18n="import">导入</span></button>
             <button id="btn-clear" class="secondary" onclick="clearPath()">🗑 <span data-i18n="clear">清空</span></button>
         </div>
         <input type="file" id="file-upload" accept=".gcode,.gco,.g" onchange="handleFileUpload(event)">
 
         <div class="btn-grid-3">
             <button id="btn-main" onclick="toggleMainAction()">▶ <span data-i18n="run">运行</span></button>
-            <button id="btn-stop" class="danger" onclick="stopSimulation()" disabled>⏹ <span data-i18n="stop">停止</span></button>
-            <button id="btn-step" class="primary" onclick="stepOnce()" disabled>⏭ <span data-i18n="step">单步</span></button>
+            <button id="btn-stop" class="danger" onclick="stopSimulation()" disabled>⏹ <span
+                    data-i18n="stop">停止</span></button>
+            <button id="btn-step" class="primary" onclick="stepOnce()" disabled>⏭ <span
+                    data-i18n="step">单步</span></button>
         </div>
 
         <div class="editor-wrapper">
             <div class="line-numbers" id="line-numbers">1</div>
-            <textarea id="gcode-input" spellcheck="false" onchange="preprocessGCode(this.value)" oninput="updateLineNumbers()" onscroll="syncEditorScroll()">G28
+            <textarea id="gcode-input" spellcheck="false" onchange="preprocessGCode(this.value)"
+                oninput="updateLineNumbers()" onscroll="syncEditorScroll()">G28
 M104 S220
 M140 S50
 G1 Z15.0 F1800
@@ -413,7 +891,8 @@ G1 X20 Y20 E20</textarea>
             <summary data-i18n="stats">任务预估 (Estimates)</summary>
             <div class="stats-grid">
                 <div><span data-i18n="estTime">预计耗时:</span> <span class="stats-val" id="stat-time">0m</span></div>
-                <div><span data-i18n="estFilament">线材消耗:</span> <span class="stats-val" id="stat-filament">0m</span></div>
+                <div><span data-i18n="estFilament">线材消耗:</span> <span class="stats-val" id="stat-filament">0m</span>
+                </div>
                 <div><span data-i18n="estWeight">预计重量:</span> <span class="stats-val" id="stat-weight">0g</span></div>
                 <div><span data-i18n="estLayers">总层数:</span> <span class="stats-val" id="stat-layers">0</span></div>
             </div>
@@ -463,7 +942,8 @@ G1 X20 Y20 E20</textarea>
             <summary data-i18n="terminal">交互式终端 (Terminal)</summary>
             <div id="terminal-output"></div>
             <div class="term-input-row">
-                <input type="text" id="terminal-input" placeholder="e.g. M114, M503" onkeydown="if(event.key === 'Enter') sendTerminalCommand()">
+                <input type="text" id="terminal-input" placeholder="e.g. M114, M503"
+                    onkeydown="if(event.key === 'Enter') sendTerminalCommand()">
                 <button class="secondary" onclick="sendTerminalCommand()">Send</button>
             </div>
         </details>
@@ -471,8 +951,10 @@ G1 X20 Y20 E20</textarea>
         <details open id="quality-details">
             <summary data-i18n="quality">质量 (Quality)</summary>
             <div class="param-group">
-                <label data-i18n="layerHeight">层高 (mm)</label> <input type="number" step="0.1" value="0.3" id="ui-layer-height">
-                <label data-i18n="wallThick">外壳厚度 (mm)</label> <input type="number" step="0.1" value="0.4" id="ui-wall-thick">
+                <label data-i18n="layerHeight">层高 (mm)</label> <input type="number" step="0.1" value="0.3"
+                    id="ui-layer-height">
+                <label data-i18n="wallThick">外壳厚度 (mm)</label> <input type="number" step="0.1" value="0.4"
+                    id="ui-wall-thick">
                 <label data-i18n="retract">开启回抽</label> <input type="checkbox" checked>
             </div>
         </details>
@@ -481,7 +963,8 @@ G1 X20 Y20 E20</textarea>
             <summary data-i18n="infill">填充 (Infill)</summary>
             <div class="param-group">
                 <label data-i18n="topBottomThick">底部/顶部厚度</label> <input type="number" step="0.1" value="0.4">
-                <label data-i18n="infillDensity">填充密度 (%)</label> <input type="number" value="80" id="ui-infill-density">
+                <label data-i18n="infillDensity">填充密度 (%)</label> <input type="number" value="80"
+                    id="ui-infill-density">
             </div>
         </details>
 
@@ -524,10 +1007,14 @@ G1 X20 Y20 E20</textarea>
         <details open id="machine-details">
             <summary data-i18n="machine">机器设置</summary>
             <div class="param-group">
-                <label data-i18n="nozzleSize">喷嘴大小 (mm)</label> <input type="number" step="0.1" value="0.4" id="ui-nozzle-size">
-                <label data-i18n="widthX">最大宽度 X (mm)</label> <input type="number" value="220" id="ui-bed-x" onchange="updateMachineVolume()">
-                <label data-i18n="depthY">最大深度 Y (mm)</label> <input type="number" value="220" id="ui-bed-y" onchange="updateMachineVolume()">
-                <label data-i18n="heightZ">最大高度 Z (mm)</label> <input type="number" value="380" id="ui-bed-z" onchange="updateMachineVolume()">
+                <label data-i18n="nozzleSize">喷嘴大小 (mm)</label> <input type="number" step="0.1" value="0.4"
+                    id="ui-nozzle-size">
+                <label data-i18n="widthX">最大宽度 X (mm)</label> <input type="number" value="220" id="ui-bed-x"
+                    onchange="updateMachineVolume()">
+                <label data-i18n="depthY">最大深度 Y (mm)</label> <input type="number" value="220" id="ui-bed-y"
+                    onchange="updateMachineVolume()">
+                <label data-i18n="heightZ">最大高度 Z (mm)</label> <input type="number" value="380" id="ui-bed-z"
+                    onchange="updateMachineVolume()">
             </div>
         </details>
     </div>
@@ -553,10 +1040,12 @@ G1 X20 Y20 E20</textarea>
     <div id="about-modal" class="modal">
         <h4 data-i18n="aboutTitle">关于本软件</h4>
         <p><b data-i18n="version">版本：</b>v3.2.6 (Pro)</p>
-        <p><b data-i18n="intro">简介：</b><span data-i18n="introText">基于单文件 SPA 纯前端架构的高精度 3D 打印机仿真器。深度模拟 Marlin 固件行为、PID 热力学及运动学规划。</span></p>
+        <p><b data-i18n="intro">简介：</b><span data-i18n="introText">基于单文件 SPA 纯前端架构的高精度 3D 打印机仿真器。深度模拟 Marlin 固件行为、PID
+                热力学及运动学规划。</span></p>
         <p><b data-i18n="techStack">技术栈：</b>Three.js (3D), Vanilla JS (Logic), SVG Filters (Gooey UI)</p>
-        
-        <div style="max-height: 180px; overflow-y: auto; background: #1a1a1a; padding: 8px; border-radius: 4px; border: 1px solid #444; margin-top: 10px; font-size: 11px; line-height: 1.5; color: #bbb; text-align: left;">
+
+        <div
+            style="max-height: 180px; overflow-y: auto; background: #1a1a1a; padding: 8px; border-radius: 4px; border: 1px solid #444; margin-top: 10px; font-size: 11px; line-height: 1.5; color: #bbb; text-align: left;">
             <p style="margin: 0 0 4px 0; font-weight: bold; color: #fff;">v3.2.6 更新日志</p>
             <ul style="margin: 0 0 12px 0; padding-left: 16px;">
                 <li>修复计算层数时将“纯 E 轴测试挤出”误算为打印层数的问题</li>
@@ -576,18 +1065,18 @@ G1 X20 Y20 E20</textarea>
         // 1. i18n Dictionary & Logic
         // ============================================================
         const i18n = {
-            zh: { 
+            zh: {
                 title: "3D 打印机仿真器", run: "运行", pause: "暂停", resume: "继续", stop: "停止", import: "导入", clear: "清空", step: "单步",
-                jogCtrl: "手动控制 (Jog)", speedMult: "播放倍速", colorMode: "颜色模式", colGradient: "Z 轴渐变", colRainbow: "彩虹", colSingle: "单色", colMulti: "多色 (M600/T)", 
-                quality: "质量 (Quality)", layerHeight: "层高 (mm)", wallThick: "外壳厚度 (mm)", retract: "开启回抽", 
-                infill: "填充 (Infill)", topBottomThick: "底部/顶部厚度", infillDensity: "填充密度 (%)", 
-                speedTemp: "速度 & 温度", printSpeed: "打印速度 (mm/s)", printTemp: "打印温度 (C)", bedTemp: "热床温度 (C)", 
-                support: "支撑 (Support)", supportType: "支撑类型", supTouching: "仅接触平台", supEverywhere: "到处", supNone: "无", adhesionType: "平台附着类型", adhNone: "无", adhSkirt: "裙边", adhBrim: "边缘", adhRaft: "底座", 
-                material: "线材 (Material)", filamentDia: "线材直径 (mm)", flow: "流量 (%)", 
-                machine: "机器设置", nozzleSize: "喷嘴大小 (mm)", widthX: "最大宽度 X (mm)", depthY: "最大深度 Y (mm)", heightZ: "最大高度 Z (mm)", 
-                retraction: "回抽 (Retraction)", retractSpeed: "速度 (mm/s)", retractLength: "回抽长度 (mm)", 
-                initLayer: "初始层设置", initThick: "初始层厚度 (mm)", initLineWidth: "首层线宽 (%)", sink: "模型下沉 (mm)", dualOverlap: "双喷头叠加量 (mm)", 
-                advSpeed: "高级速度", moveSpeed: "移动速度 (mm/s)", bottomSpeed: "底层打印速度", infillSpeed: "内部填充速度", wallSpeed: "外壳打印速度", innerSpeed: "内部打印速度", 
+                jogCtrl: "手动控制 (Jog)", speedMult: "播放倍速", colorMode: "颜色模式", colGradient: "Z 轴渐变", colRainbow: "彩虹", colSingle: "单色", colMulti: "多色 (M600/T)",
+                quality: "质量 (Quality)", layerHeight: "层高 (mm)", wallThick: "外壳厚度 (mm)", retract: "开启回抽",
+                infill: "填充 (Infill)", topBottomThick: "底部/顶部厚度", infillDensity: "填充密度 (%)",
+                speedTemp: "速度 & 温度", printSpeed: "打印速度 (mm/s)", printTemp: "打印温度 (C)", bedTemp: "热床温度 (C)",
+                support: "支撑 (Support)", supportType: "支撑类型", supTouching: "仅接触平台", supEverywhere: "到处", supNone: "无", adhesionType: "平台附着类型", adhNone: "无", adhSkirt: "裙边", adhBrim: "边缘", adhRaft: "底座",
+                material: "线材 (Material)", filamentDia: "线材直径 (mm)", flow: "流量 (%)",
+                machine: "机器设置", nozzleSize: "喷嘴大小 (mm)", widthX: "最大宽度 X (mm)", depthY: "最大深度 Y (mm)", heightZ: "最大高度 Z (mm)",
+                retraction: "回抽 (Retraction)", retractSpeed: "速度 (mm/s)", retractLength: "回抽长度 (mm)",
+                initLayer: "初始层设置", initThick: "初始层厚度 (mm)", initLineWidth: "首层线宽 (%)", sink: "模型下沉 (mm)", dualOverlap: "双喷头叠加量 (mm)",
+                advSpeed: "高级速度", moveSpeed: "移动速度 (mm/s)", bottomSpeed: "底层打印速度", infillSpeed: "内部填充速度", wallSpeed: "外壳打印速度", innerSpeed: "内部打印速度",
                 cooling: "冷却 (Cooling)", minLayerTime: "每层最少时间 (秒)", fan: "使用冷却风扇",
                 slicePreview: "分层剖切预览 (Clipping)", zHeight: "Z 轴高度", stats: "任务预估 (Estimates)", estTime: "预计耗时:", estFilament: "线材消耗:", estWeight: "预计重量:", estLayers: "总层数:",
                 terminal: "交互式终端 (Terminal)",
@@ -595,18 +1084,18 @@ G1 X20 Y20 E20</textarea>
                 opsTips: "操作提示：", tip1: "暂停时点击“单步”可逐行执行 G-code。", tip2: "运行时可拖动“分层剖切”滑块查看内部结构。", tip3: "终端控制台支持实时发送如 M114、M503 等查询指令。",
                 aboutTitle: "关于本软件", version: "版本：", intro: "简介：", introText: "基于单文件 SPA 纯前端架构的高精度 3D 打印机仿真器。深度模拟 Marlin 固件行为、PID 热力学及运动学规划。", techStack: "技术栈：", close: "关闭"
             },
-            en: { 
+            en: {
                 title: "3D Printer Simulator", run: "Run", pause: "Pause", resume: "Resume", stop: "Stop", import: "Import", clear: "Clear", step: "Step",
-                jogCtrl: "Jog Control", speedMult: "Playback Speed", colorMode: "Color Mode", colGradient: "Z Gradient", colRainbow: "Rainbow", colSingle: "Single", colMulti: "Multi (M600/T)", 
-                quality: "Quality", layerHeight: "Layer Height", wallThick: "Wall Thickness", retract: "Retraction", 
-                infill: "Infill", topBottomThick: "Top/Bottom Thickness", infillDensity: "Infill Density (%)", 
-                speedTemp: "Speed & Temp", printSpeed: "Print Speed (mm/s)", printTemp: "Print Temp (C)", bedTemp: "Bed Temp (C)", 
-                support: "Support", supportType: "Support Type", supTouching: "Touching buildplate", supEverywhere: "Everywhere", supNone: "None", adhesionType: "Build Plate Adhesion", adhNone: "None", adhSkirt: "Skirt", adhBrim: "Brim", adhRaft: "Raft", 
-                material: "Material", filamentDia: "Filament Dia (mm)", flow: "Flow (%)", 
-                machine: "Machine Settings", nozzleSize: "Nozzle Size (mm)", widthX: "Max Width X (mm)", depthY: "Max Depth Y (mm)", heightZ: "Max Height Z (mm)", 
-                retraction: "Retraction", retractSpeed: "Speed (mm/s)", retractLength: "Retract Length (mm)", 
-                initLayer: "Initial Layer", initThick: "Init Thickness (mm)", initLineWidth: "Init Line Width (%)", sink: "Sink (mm)", dualOverlap: "Dual Overlap (mm)", 
-                advSpeed: "Adv. Speed", moveSpeed: "Move Speed (mm/s)", bottomSpeed: "Bottom Speed", infillSpeed: "Infill Speed", wallSpeed: "Wall Speed", innerSpeed: "Inner Speed", 
+                jogCtrl: "Jog Control", speedMult: "Playback Speed", colorMode: "Color Mode", colGradient: "Z Gradient", colRainbow: "Rainbow", colSingle: "Single", colMulti: "Multi (M600/T)",
+                quality: "Quality", layerHeight: "Layer Height", wallThick: "Wall Thickness", retract: "Retraction",
+                infill: "Infill", topBottomThick: "Top/Bottom Thickness", infillDensity: "Infill Density (%)",
+                speedTemp: "Speed & Temp", printSpeed: "Print Speed (mm/s)", printTemp: "Print Temp (C)", bedTemp: "Bed Temp (C)",
+                support: "Support", supportType: "Support Type", supTouching: "Touching buildplate", supEverywhere: "Everywhere", supNone: "None", adhesionType: "Build Plate Adhesion", adhNone: "None", adhSkirt: "Skirt", adhBrim: "Brim", adhRaft: "Raft",
+                material: "Material", filamentDia: "Filament Dia (mm)", flow: "Flow (%)",
+                machine: "Machine Settings", nozzleSize: "Nozzle Size (mm)", widthX: "Max Width X (mm)", depthY: "Max Depth Y (mm)", heightZ: "Max Height Z (mm)",
+                retraction: "Retraction", retractSpeed: "Speed (mm/s)", retractLength: "Retract Length (mm)",
+                initLayer: "Initial Layer", initThick: "Init Thickness (mm)", initLineWidth: "Init Line Width (%)", sink: "Sink (mm)", dualOverlap: "Dual Overlap (mm)",
+                advSpeed: "Adv. Speed", moveSpeed: "Move Speed (mm/s)", bottomSpeed: "Bottom Speed", infillSpeed: "Infill Speed", wallSpeed: "Wall Speed", innerSpeed: "Inner Speed",
                 cooling: "Cooling", minLayerTime: "Min Layer Time (s)", fan: "Use Cooling Fan",
                 slicePreview: "Layer Clipping", zHeight: "Z Height", stats: "Estimates", estTime: "Time:", estFilament: "Filament:", estWeight: "Weight:", estLayers: "Layers:",
                 terminal: "Terminal Console",
@@ -616,7 +1105,7 @@ G1 X20 Y20 E20</textarea>
             }
         };
         let currentLang = navigator.language.startsWith('zh') ? 'zh' : 'en';
-        
+
         function updateLanguage() {
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
@@ -657,10 +1146,10 @@ G1 X20 Y20 E20</textarea>
         let downX = 0, downY = 0;
         let grabOffsetX = 0, grabOffsetY = 0;
         let startX, startY;
-        
+
         let snapLeft = 20;
         let snapTop = 20;
-        
+
         const R = 24;
         const MAX_DRAG = 80;
         const CLICK_DEADZONE = 5;
@@ -750,8 +1239,8 @@ G1 X20 Y20 E20</textarea>
                 blobDrag.style.transition = 'none';
                 blobDrag.style.transform = `translate(${targetLeft}px, ${targetTop}px) scale(1)`;
                 blobAnchor.offsetHeight;
-                blobAnchor.style.transition = ''; 
-                blobDrag.style.transition = ''; 
+                blobAnchor.style.transition = '';
+                blobDrag.style.transition = '';
             }, 600);
         });
 
@@ -760,10 +1249,10 @@ G1 X20 Y20 E20</textarea>
             const cy = mouseY - grabOffsetY;
             const dx = cx - startX;
             const dy = cy - startY;
-            const dist = Math.sqrt(dx*dx + dy*dy);
+            const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist > MAX_DRAG) {
                 blobAnchor.style.transform = `translate(${startX - R}px, ${startY - R}px) scale(0)`;
-                isBroken = true; 
+                isBroken = true;
             } else {
                 if (isBroken) {
                     blobAnchor.style.display = 'block';
@@ -773,7 +1262,7 @@ G1 X20 Y20 E20</textarea>
                 const anchorScale = Math.max(1 - ratio * 1.2, 0);
                 blobAnchor.style.transform = `translate(${startX - R}px, ${startY - R}px) scale(${anchorScale})`;
             }
-            const dragR = R * 0.8 - Math.min(dist / MAX_DRAG * 4, 4); 
+            const dragR = R * 0.8 - Math.min(dist / MAX_DRAG * 4, 4);
             const dragScale = dragR / R;
             const left = cx - R;
             const top = cy - R;
@@ -802,11 +1291,11 @@ G1 X20 Y20 E20</textarea>
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.localClippingEnabled = true; 
+        renderer.localClippingEnabled = true;
         document.body.appendChild(renderer.domElement);
 
         let BED_WIDTH = 220, BED_DEPTH = 220, MAX_HEIGHT = 380;
-        let maxModelZ = 0; 
+        let maxModelZ = 0;
         const defaultCenter = new THREE.Vector3(BED_WIDTH / 2, 0, BED_DEPTH / 2);
         let currentCenter = defaultCenter.clone();
         let spherical = new THREE.Spherical(400, Math.PI / 3, -Math.PI / 4);
@@ -834,12 +1323,12 @@ G1 X20 Y20 E20</textarea>
 
         // Visual Clipping Plane (Warm Orange, No Wireframe)
         let slicePlaneGeo = new THREE.PlaneGeometry(BED_WIDTH, BED_DEPTH);
-        const slicePlaneMat = new THREE.MeshBasicMaterial({ 
-            color: 0xff9800, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false 
+        const slicePlaneMat = new THREE.MeshBasicMaterial({
+            color: 0xff9800, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false
         });
         const slicePlaneMesh = new THREE.Mesh(slicePlaneGeo, slicePlaneMat);
         slicePlaneMesh.rotation.x = -Math.PI / 2;
-        slicePlaneMesh.position.set(BED_WIDTH/2, MAX_HEIGHT, BED_DEPTH/2);
+        slicePlaneMesh.position.set(BED_WIDTH / 2, MAX_HEIGHT, BED_DEPTH / 2);
         scene.add(slicePlaneMesh);
 
         const volumeGroup = new THREE.Group();
@@ -852,7 +1341,7 @@ G1 X20 Y20 E20</textarea>
             const matX = new THREE.MeshBasicMaterial({ color: 0xff3333 });
             const matY = new THREE.MeshBasicMaterial({ color: 0x33ff33 });
             const matZ = new THREE.MeshBasicMaterial({ color: 0x3333ff });
-            
+
             const xGroup = new THREE.Group(); xGroup.userData.axis = 'x';
             const xShaftGeo = new THREE.CylinderGeometry(shaftW, shaftW, length - headLen, 8); xShaftGeo.rotateZ(-Math.PI / 2); xShaftGeo.translate((length - headLen) / 2, 0, 0);
             const xShaft = new THREE.Mesh(xShaftGeo, matX);
@@ -878,18 +1367,18 @@ G1 X20 Y20 E20</textarea>
         }
 
         function rebuildVolume() {
-            while(volumeGroup.children.length > 0) volumeGroup.remove(volumeGroup.children[0]);
+            while (volumeGroup.children.length > 0) volumeGroup.remove(volumeGroup.children[0]);
             clickableAxes.length = 0;
             const boxGeo = new THREE.BoxGeometry(BED_WIDTH, MAX_HEIGHT, BED_DEPTH);
             const boxMat = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.05, depthWrite: false });
-            const boxMesh = new THREE.Mesh(boxGeo, boxMat); boxMesh.position.set(BED_WIDTH/2, MAX_HEIGHT/2, BED_DEPTH/2); volumeGroup.add(boxMesh);
+            const boxMesh = new THREE.Mesh(boxGeo, boxMat); boxMesh.position.set(BED_WIDTH / 2, MAX_HEIGHT / 2, BED_DEPTH / 2); volumeGroup.add(boxMesh);
             const edges = new THREE.EdgesGeometry(boxGeo);
             const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x555555 })); line.position.copy(boxMesh.position); volumeGroup.add(line);
             volumeGroup.add(createAxes(30));
-            const gridHelper = new THREE.GridHelper(Math.max(BED_WIDTH, BED_DEPTH), Math.max(BED_WIDTH, BED_DEPTH)/10, 0x555555, 0x333333); gridHelper.position.set(BED_WIDTH/2, -0.1, BED_DEPTH/2); volumeGroup.add(gridHelper);
+            const gridHelper = new THREE.GridHelper(Math.max(BED_WIDTH, BED_DEPTH), Math.max(BED_WIDTH, BED_DEPTH) / 10, 0x555555, 0x333333); gridHelper.position.set(BED_WIDTH / 2, -0.1, BED_DEPTH / 2); volumeGroup.add(gridHelper);
             defaultCenter.set(BED_WIDTH / 2, 0, BED_DEPTH / 2);
             currentCenter.copy(defaultCenter);
-            
+
             sliceSlider.max = MAX_HEIGHT;
             sliceSlider.value = MAX_HEIGHT;
             sliceVal.innerText = `Z: ${MAX_HEIGHT.toFixed(1)} / ${MAX_HEIGHT.toFixed(1)} (模型: ${maxModelZ.toFixed(1)}mm)`;
@@ -897,7 +1386,7 @@ G1 X20 Y20 E20</textarea>
             slicePlaneMesh.position.y = MAX_HEIGHT;
             slicePlaneMesh.position.x = BED_WIDTH / 2;
             slicePlaneMesh.position.z = BED_DEPTH / 2;
-            
+
             slicePlaneMesh.geometry.dispose();
             slicePlaneMesh.geometry = new THREE.PlaneGeometry(BED_WIDTH, BED_DEPTH);
         }
@@ -905,7 +1394,7 @@ G1 X20 Y20 E20</textarea>
 
         const bedGeo = new THREE.PlaneGeometry(BED_WIDTH, BED_DEPTH);
         const bedMat = new THREE.MeshBasicMaterial({ color: 0x2a2a3a, side: THREE.DoubleSide });
-        const bedMesh = new THREE.Mesh(bedGeo, bedMat); bedMesh.rotation.x = -Math.PI / 2; bedMesh.position.set(BED_WIDTH/2, -0.2, BED_DEPTH/2); scene.add(bedMesh);
+        const bedMesh = new THREE.Mesh(bedGeo, bedMat); bedMesh.rotation.x = -Math.PI / 2; bedMesh.position.set(BED_WIDTH / 2, -0.2, BED_DEPTH / 2); scene.add(bedMesh);
 
         // ============================================================
         // 4. Nozzle & Path
@@ -924,16 +1413,16 @@ G1 X20 Y20 E20</textarea>
         pathGeometry.setAttribute('position', new THREE.BufferAttribute(segmentPositions, 3));
         pathGeometry.setAttribute('color', new THREE.BufferAttribute(segmentColors, 3));
         pathGeometry.setDrawRange(0, 0);
-        
-        const pathMat = new THREE.LineBasicMaterial({ 
+
+        const pathMat = new THREE.LineBasicMaterial({
             vertexColors: true,
             clippingPlanes: [clipPlane],
             clipIntersection: false,
             linewidth: 2
         });
-        
-        const pathLine = new THREE.LineSegments(pathGeometry, pathMat); 
-        pathLine.frustumCulled = false; 
+
+        const pathLine = new THREE.LineSegments(pathGeometry, pathMat);
+        pathLine.frustumCulled = false;
         scene.add(pathLine);
         let lastExtrudePoint = null;
         let leakPoint = null;
@@ -942,9 +1431,9 @@ G1 X20 Y20 E20</textarea>
         function pushSegment(ax, ay, az, bx, by, bz, r, g, b) {
             if (segmentCount >= MAX_SEGMENTS) return false;
             const i = segmentCount * 6;
-            segmentPositions[i]     = ax; segmentPositions[i + 1] = ay; segmentPositions[i + 2] = az;
+            segmentPositions[i] = ax; segmentPositions[i + 1] = ay; segmentPositions[i + 2] = az;
             segmentPositions[i + 3] = bx; segmentPositions[i + 4] = by; segmentPositions[i + 5] = bz;
-            segmentColors[i]     = r; segmentColors[i + 1] = g; segmentColors[i + 2] = b;
+            segmentColors[i] = r; segmentColors[i + 1] = g; segmentColors[i + 2] = b;
             segmentColors[i + 3] = r; segmentColors[i + 4] = g; segmentColors[i + 5] = b;
             segmentCount++;
             return true;
@@ -981,7 +1470,7 @@ G1 X20 Y20 E20</textarea>
                             total += mixColors[i];
                         }
                     }
-                    if (total > 0) return [r/total, g/total, b/total];
+                    if (total > 0) return [r / total, g / total, b / total];
                 }
                 return multiColorPalette[currentMultiColorIndex % multiColorPalette.length];
             } else {
@@ -997,20 +1486,20 @@ G1 X20 Y20 E20</textarea>
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
         let hoveredAxisObj = null;
-        
+
         renderer.domElement.addEventListener('mousedown', e => {
             if (e.button === 0) isLeftDown = true;
             if (e.button === 2) isRightDown = true;
             px = e.clientX; py = e.clientY; dragDist = 0;
         });
         renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
-        
+
         window.addEventListener('mousemove', e => {
             const dx = e.clientX - px; const dy = e.clientY - py;
             dragDist += Math.abs(dx) + Math.abs(dy);
             if (isLeftDown && !isRightDown) {
                 spherical.theta -= dx * 0.005; spherical.phi -= dy * 0.005;
-                spherical.phi = Math.max(0.05, Math.min(Math.PI / 2 - 0.01, spherical.phi)); 
+                spherical.phi = Math.max(0.05, Math.min(Math.PI / 2 - 0.01, spherical.phi));
             } else if (isRightDown && !isLeftDown) {
                 const panSpeed = spherical.radius * 0.001;
                 camera.updateMatrixWorld();
@@ -1026,8 +1515,8 @@ G1 X20 Y20 E20</textarea>
                     let obj = intersects[0].object;
                     while (obj && !obj.userData.axis) obj = obj.parent;
                     if (obj && hoveredAxisObj !== obj) {
-                        if (hoveredAxisObj) hoveredAxisObj.scale.set(1, 1, 1); 
-                        hoveredAxisObj = obj; hoveredAxisObj.scale.set(1.5, 1.5, 1.5); 
+                        if (hoveredAxisObj) hoveredAxisObj.scale.set(1, 1, 1);
+                        hoveredAxisObj = obj; hoveredAxisObj.scale.set(1.5, 1.5, 1.5);
                     }
                     renderer.domElement.style.cursor = 'pointer';
                 } else {
@@ -1037,7 +1526,7 @@ G1 X20 Y20 E20</textarea>
             }
             px = e.clientX; py = e.clientY;
         });
-        
+
         window.addEventListener('mouseup', e => {
             if (e.button === 0) isLeftDown = false;
             if (e.button === 2) isRightDown = false;
@@ -1080,7 +1569,7 @@ G1 X20 Y20 E20</textarea>
         const btnStop = document.getElementById('btn-stop');
         const btnStep = document.getElementById('btn-step');
         const speedMultSelect = document.getElementById('speed-mult');
-        
+
         let currentSpeedMult = 1.0;
         function updateSpeed() { currentSpeedMult = parseFloat(speedMultSelect.value); }
 
@@ -1091,11 +1580,11 @@ G1 X20 Y20 E20</textarea>
 
         const firmwareSettings = {
             maxFeedrate: { x: 300, y: 300, z: 10, e: 50 },
-            maxAccel:    { x: 3000, y: 3000, z: 200, e: 10000 },
+            maxAccel: { x: 3000, y: 3000, z: 200, e: 10000 },
             printAccel: 3000,
             moveAccel: 3000,
             retractAccel: 3000,
-            maxJerk:     { x: 8, y: 8, z: 0.4, e: 5 },
+            maxJerk: { x: 8, y: 8, z: 0.4, e: 5 },
             junctionDeviation: 0.013,
             speedFactor: 1.0,
             flowFactor: 1.0,
@@ -1114,26 +1603,26 @@ G1 X20 Y20 E20</textarea>
         const plannerPos = { x: 0, y: 0, z: 0 };
 
         const RING_SIZE = 16;
-        let stepQueue = [];       
-        let activeRing = [];      
+        let stepQueue = [];
+        let activeRing = [];
 
         function refillRing() {
             while (activeRing.length < RING_SIZE && stepQueue.length > 0) {
                 activeRing.push(stepQueue.shift());
             }
         }
-        
+
         let isAnimating = false, isPaused = false, isStopped = true;
         let isSingleStep = false;
         let currentPos = { x: 0, y: 0, z: 0 };
-        let currentE = 0; 
+        let currentE = 0;
         let jobStartTime = 0;
 
         let targetHotend = 0, currentHotend = AMBIENT_TEMP;
         let targetBed = 0, currentBed = AMBIENT_TEMP;
 
-        let fanSpeed = 0;           
-        let steppersEnabled = true; 
+        let fanSpeed = 0;
+        let steppersEnabled = true;
 
         let hotendStableTime = 0;
         let bedStableTime = 0;
@@ -1151,7 +1640,7 @@ G1 X20 Y20 E20</textarea>
 
         let totalSteps = 0;
         let currentLine = 0;
-        let lastMoveDir = null; 
+        let lastMoveDir = null;
 
         let estTimeMs = 0;
         let estFilamentMm = 0;
@@ -1194,7 +1683,7 @@ G1 X20 Y20 E20</textarea>
 
         function syncEditorScroll() {
             lineNumbers.scrollTop = textarea.scrollTop;
-            updateLineHighlight(); 
+            updateLineHighlight();
         }
 
         function logTerminal(text, type = '') {
@@ -1213,7 +1702,7 @@ G1 X20 Y20 E20</textarea>
                 lastHighlightScrollTop = -1;
                 return;
             }
-            
+
             let targetLine = 0;
             if (activeStep && activeStep.lineNum > 0) targetLine = activeStep.lineNum;
             else if (lastLineNum > 0) targetLine = lastLineNum;
@@ -1249,14 +1738,14 @@ G1 X20 Y20 E20</textarea>
             const totalMins = Math.floor(estTimeMs / 60000);
             const totalSecs = Math.floor((estTimeMs % 60000) / 1000);
             document.getElementById('stat-time').innerText = `${totalMins}m ${totalSecs}s`;
-            
+
             const meters = estFilamentMm / 1000;
             document.getElementById('stat-filament').innerText = `${meters.toFixed(2)}m`;
-            
+
             const volCm3 = (Math.PI * Math.pow(firmwareSettings.filamentDia / 2, 2) * estFilamentMm) / 1000;
             const weight = volCm3 * FILAMENT_DENSITY;
             document.getElementById('stat-weight').innerText = `${weight.toFixed(1)}g`;
-            
+
             document.getElementById('stat-layers').innerText = estLayers.size;
             updateSliceMarks();
             updateSliceModelFill();
@@ -1265,7 +1754,7 @@ G1 X20 Y20 E20</textarea>
         function updateSliceMarks() {
             const marksDiv = document.getElementById('model-layer-marks');
             marksDiv.innerHTML = '';
-            
+
             // Draw white blocks for instruction density
             for (let i = 0; i < 100; i++) {
                 if (progressDensity[i] > 0) {
@@ -1276,7 +1765,7 @@ G1 X20 Y20 E20</textarea>
                     marksDiv.appendChild(block);
                 }
             }
-            
+
             // Draw layer marks
             layerMarkPercentages.forEach(pct => {
                 const tick = document.createElement('div');
@@ -1295,7 +1784,7 @@ G1 X20 Y20 E20</textarea>
             if (rounded === lastSliceFillPct) return;
             lastSliceFillPct = rounded;
             fill.style.width = rounded + '%';
-            
+
             const z = parseFloat(sliceSlider.value) || 0;
             const text = `Z: ${z.toFixed(1)} / ${MAX_HEIGHT.toFixed(1)} (模型: ${maxModelZ.toFixed(1)}mm)`;
             if (text !== lastSliceText) {
@@ -1349,7 +1838,7 @@ G1 X20 Y20 E20</textarea>
             setProgress(progress);
             updateLineHighlight();
             updateSliceModelFill();
-            
+
             // Enhanced Dashboard Status
             const totalLines = lastLineNumberCount > 0 ? lastLineNumberCount : 1;
             const curLine = lastLineNum || 0;
@@ -1359,16 +1848,16 @@ G1 X20 Y20 E20</textarea>
                 elapsed = (performance.now() - jobStartTime) / 1000;
             }
             const eta = Math.max(0, totalEst - elapsed);
-            const fmtTime = (s) => `${Math.floor(s/60)}m ${Math.floor(s%60)}s`;
+            const fmtTime = (s) => `${Math.floor(s / 60)}m ${Math.floor(s % 60)}s`;
 
             let statusStr = `Marlin Sim\n`;
             statusStr += `X:${plannerPos.x.toFixed(1)} Y:${plannerPos.y.toFixed(1)} Z:${plannerPos.z.toFixed(1)}/${maxModelZ.toFixed(1)} E:${currentE.toFixed(2)}\n`;
             statusStr += `Line: ${curLine}/${totalLines} | T:${currentHotend.toFixed(0)}/${targetHotend.toFixed(0)} B:${currentBed.toFixed(0)}/${targetBed.toFixed(0)}\n`;
             statusStr += `Time: ${fmtTime(elapsed)} / ${fmtTime(totalEst)} (ETA: ${fmtTime(eta)})\n`;
             statusStr += `Q:${queued} | Ring:${activeRing.length}/${RING_SIZE} | F:${gcodeState.feedrate} | ${progress.toFixed(1)}%\n`;
-            statusStr += `Spd:${(firmwareSettings.speedFactor*100).toFixed(0)}% Flow:${(firmwareSettings.flowFactor*100).toFixed(0)}% Fan:${(fanSpeed*100).toFixed(0)}%\n`;
+            statusStr += `Spd:${(firmwareSettings.speedFactor * 100).toFixed(0)}% Flow:${(firmwareSettings.flowFactor * 100).toFixed(0)}% Fan:${(fanSpeed * 100).toFixed(0)}%\n`;
             statusStr += stateStr;
-            
+
             if (statusEl.innerText !== statusStr) {
                 statusEl.innerText = statusStr;
             }
@@ -1394,19 +1883,19 @@ G1 X20 Y20 E20</textarea>
                 if (Math.abs(dvec.y) > 1e-6) speed = Math.min(speed, mf.y * distance / Math.abs(dvec.y));
                 if (Math.abs(dvec.z) > 1e-6) speed = Math.min(speed, mf.z * distance / Math.abs(dvec.z));
             }
-            
-            const accel = Math.max(10, isExtruding ? firmwareSettings.printAccel : firmwareSettings.moveAccel); 
+
+            const accel = Math.max(10, isExtruding ? firmwareSettings.printAccel : firmwareSettings.moveAccel);
             const vJunction = Math.sqrt(accel * firmwareSettings.junctionDeviation);
             speed = Math.min(speed, vJunction);
-            speed = Math.min(speed, Math.sqrt(accel * distance)); 
-            
+            speed = Math.min(speed, Math.sqrt(accel * distance));
+
             if (speed <= 0.001) return 5000;
             return Math.max(1, (distance / speed) * 1000 + (speed / accel) * 1000);
         }
 
         function estimateHeatTime(target, current, tau, tmax) {
             if (target <= current) return 0;
-            if (target >= tmax - 1) return tau * 3 * 1000; 
+            if (target >= tmax - 1) return tau * 3 * 1000;
             const t = -tau * Math.log((tmax - target) / (tmax - current));
             return Math.max(0, t) * 1000;
         }
@@ -1417,7 +1906,7 @@ G1 X20 Y20 E20</textarea>
         function parseGCodeLine(line, lineNum) {
             let cleanLine = line.replace(/\([^)]*\)/g, '');
             const upper = cleanLine.toUpperCase().trim();
-            
+
             if (upper.startsWith('M117') || upper.startsWith('M118')) {
                 const cmdMatch = cleanLine.match(/^(M11[78])\s*(.*)/i);
                 if (cmdMatch) {
@@ -1483,13 +1972,13 @@ G1 X20 Y20 E20</textarea>
             const extruding = !isTravelOnly && eDelta > 0.0001;
             const retracting = eInfo.delta < -0.0001;
 
-            gcodeState.e = eInfo.target; 
+            gcodeState.e = eInfo.target;
             plannerPos.x = target.x; plannerPos.y = target.y; plannerPos.z = target.z;
 
             const dx = target.x - from.x;
             const dy = target.y - from.y;
             const dz = target.z - from.z;
-            const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
             if (dist <= 1e-6 && eInfo.delta === 0) {
                 return;
@@ -1501,18 +1990,18 @@ G1 X20 Y20 E20</textarea>
                 const cosA = Math.max(-1, Math.min(1, dot));
                 junctionFactor = Math.max(0.25, Math.min(1.0, Math.sqrt(Math.max(0.0001, (1 + cosA) / 2))));
             }
-            if (dist > 0.001) lastMoveDir = { x: dx/dist, y: dy/dist, z: dz/dist };
+            if (dist > 0.001) lastMoveDir = { x: dx / dist, y: dy / dist, z: dz / dist };
 
             const effFeed = gcodeState.feedrate * junctionFactor;
-            
+
             const duration = (dist <= 1e-6 && eInfo.delta !== 0)
-                ? (Math.abs(eInfo.delta) / (gcodeState.feedrate / 60)) * 1000 
+                ? (Math.abs(eInfo.delta) / (gcodeState.feedrate / 60)) * 1000
                 : computeDuration(dist, effFeed, { x: dx, y: dy, z: dz }, extruding);
-            
+
             estTimeMs += duration;
             if (extruding) {
                 estFilamentMm += Math.abs(eInfo.delta);
-                if (target.z > 0 && dist > 1e-6) { // Only count as layer if it's an actual movement
+                if (target.z > 0 && dist > 1e-6) {
                     estLayers.add(target.z.toFixed(2));
                     if (target.z > maxModelZ) maxModelZ = target.z;
                 }
@@ -1537,19 +2026,19 @@ G1 X20 Y20 E20</textarea>
             if (words.R !== undefined) {
                 const r = words.R * gcodeState.unitScale;
                 const dx = toX - fromX, dy = toY - fromY;
-                const chord = Math.sqrt(dx*dx + dy*dy);
+                const chord = Math.sqrt(dx * dx + dy * dy);
                 if (chord < 1e-6) return;
-                const h = Math.sqrt(Math.max(0, r*r - (chord*chord)/4));
-                const ux = -dy/chord, uy = dx/chord;
-                const mx = (fromX + toX)/2, my = (fromY + toY)/2;
-                const c1x = mx + ux*h, c1y = my + uy*h;
-                const c2x = mx - ux*h, c2y = my - uy*h;
+                const h = Math.sqrt(Math.max(0, r * r - (chord * chord) / 4));
+                const ux = -dy / chord, uy = dx / chord;
+                const mx = (fromX + toX) / 2, my = (fromY + toY) / 2;
+                const c1x = mx + ux * h, c1y = my + uy * h;
+                const c2x = mx - ux * h, c2y = my - uy * h;
                 const sweepOf = (px0, py0) => {
                     const a0 = Math.atan2(fromY - py0, fromX - px0);
                     const a1 = Math.atan2(toY - py0, toX - px0);
                     let sw = a1 - a0;
-                    if (clockwise) { while (sw >= 0) sw -= 2*Math.PI; }
-                    else { while (sw <= 0) sw += 2*Math.PI; }
+                    if (clockwise) { while (sw >= 0) sw -= 2 * Math.PI; }
+                    else { while (sw <= 0) sw += 2 * Math.PI; }
                     return sw;
                 };
                 const s1 = sweepOf(c1x, c1y);
@@ -1570,8 +2059,8 @@ G1 X20 Y20 E20</textarea>
             const a0 = Math.atan2(fromY - cy, fromX - cx);
             const a1 = Math.atan2(toY - cy, toX - cx);
             let sweep = a1 - a0;
-            if (clockwise) { while (sweep >= 0) sweep -= 2*Math.PI; }
-            else { while (sweep <= 0) sweep += 2*Math.PI; }
+            if (clockwise) { while (sweep >= 0) sweep -= 2 * Math.PI; }
+            else { while (sweep <= 0) sweep += 2 * Math.PI; }
 
             const arcLen = Math.abs(sweep) * arcR;
             const segs = Math.max(4, Math.min(2000, Math.ceil(arcLen / 0.5)));
@@ -1586,7 +2075,7 @@ G1 X20 Y20 E20</textarea>
                 const sxp = (i === segs) ? toX : cx + arcR * Math.cos(ang);
                 const syp = (i === segs) ? toY : cy + arcR * Math.sin(ang);
                 const szp = fromZ + (toZ - fromZ) * t;
-                
+
                 let clampedX = sxp, clampedY = syp, clampedZ = szp;
                 if (firmwareSettings.softEndstops) {
                     clampedX = clamp(sxp, 0, BED_WIDTH);
@@ -1595,18 +2084,18 @@ G1 X20 Y20 E20</textarea>
                 }
 
                 const sdx = clampedX - curX, sdy = clampedY - curY, sdz = clampedZ - curZ;
-                const segDist = Math.sqrt(sdx*sdx + sdy*sdy + sdz*sdz);
+                const segDist = Math.sqrt(sdx * sdx + sdy * sdy + sdz * sdz);
                 const segE = (totalE / segs) * firmwareSettings.flowFactor;
                 eAcc += segE;
-                
+
                 const dur = computeDuration(segDist, gcodeState.feedrate, { x: sdx, y: sdy, z: sdz }, segE > 0);
                 estTimeMs += dur;
                 if (segE > 0) estFilamentMm += Math.abs(segE);
-                if (clampedZ > 0 && segDist > 1e-6) { // Only count as layer if it's an actual movement
+                if (clampedZ > 0 && segDist > 1e-6) {
                     estLayers.add(clampedZ.toFixed(2));
                     if (clampedZ > maxModelZ) maxModelZ = clampedZ;
                 }
-                
+
                 stepQueue.push({
                     target: { x: clampedX, y: clampedY, z: clampedZ },
                     targetE: gcodeState.e + eAcc,
@@ -1629,44 +2118,44 @@ G1 X20 Y20 E20</textarea>
             const doY = words.Y !== undefined || noWords;
             const doZ = words.Z !== undefined || noWords;
             let feed = words.F !== undefined ? words.F : 3000;
-            
+
             if (doZ && doX && doY) {
-                stepQueue.push({ target: {x: plannerPos.x, y: plannerPos.y, z: 10}, targetE: gcodeState.e, extruding: false, duration: 500, ...meta });
+                stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: 10 }, targetE: gcodeState.e, extruding: false, duration: 500, ...meta });
                 plannerPos.z = 10;
             }
 
             if (doX) {
                 const dist = Math.abs(plannerPos.x);
-                stepQueue.push({ target: {x:0, y:plannerPos.y, z:plannerPos.z}, targetE: gcodeState.e, extruding: false, duration: Math.max(60, dist / (feed/60) * 1000), ...meta });
+                stepQueue.push({ target: { x: 0, y: plannerPos.y, z: plannerPos.z }, targetE: gcodeState.e, extruding: false, duration: Math.max(60, dist / (feed / 60) * 1000), ...meta });
                 plannerPos.x = 0;
             }
             if (doY) {
                 const dist = Math.abs(plannerPos.y);
-                stepQueue.push({ target: {x:plannerPos.x, y:0, z:plannerPos.z}, targetE: gcodeState.e, extruding: false, duration: Math.max(60, dist / (feed/60) * 1000), ...meta });
+                stepQueue.push({ target: { x: plannerPos.x, y: 0, z: plannerPos.z }, targetE: gcodeState.e, extruding: false, duration: Math.max(60, dist / (feed / 60) * 1000), ...meta });
                 plannerPos.y = 0;
             }
             if (doZ) {
                 const dist = Math.abs(plannerPos.z);
-                stepQueue.push({ target: {x:plannerPos.x, y:plannerPos.y, z:0}, targetE: gcodeState.e, extruding: false, duration: Math.max(120, dist / 40 * 1000), ...meta });
+                stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: 0 }, targetE: gcodeState.e, extruding: false, duration: Math.max(120, dist / 40 * 1000), ...meta });
                 plannerPos.z = 0;
             }
 
             if (doX) {
-                stepQueue.push({ target: {x:3, y:plannerPos.y, z:plannerPos.z}, targetE: gcodeState.e, extruding: false, duration: 120, ...meta });
+                stepQueue.push({ target: { x: 3, y: plannerPos.y, z: plannerPos.z }, targetE: gcodeState.e, extruding: false, duration: 120, ...meta });
                 plannerPos.x = 3;
-                stepQueue.push({ target: {x:0, y:plannerPos.y, z:plannerPos.z}, targetE: gcodeState.e, extruding: false, duration: 400, ...meta });
+                stepQueue.push({ target: { x: 0, y: plannerPos.y, z: plannerPos.z }, targetE: gcodeState.e, extruding: false, duration: 400, ...meta });
                 plannerPos.x = 0;
             }
             if (doY) {
-                stepQueue.push({ target: {x:plannerPos.x, y:3, z:plannerPos.z}, targetE: gcodeState.e, extruding: false, duration: 120, ...meta });
+                stepQueue.push({ target: { x: plannerPos.x, y: 3, z: plannerPos.z }, targetE: gcodeState.e, extruding: false, duration: 120, ...meta });
                 plannerPos.y = 3;
-                stepQueue.push({ target: {x:plannerPos.x, y:0, z:plannerPos.z}, targetE: gcodeState.e, extruding: false, duration: 400, ...meta });
+                stepQueue.push({ target: { x: plannerPos.x, y: 0, z: plannerPos.z }, targetE: gcodeState.e, extruding: false, duration: 400, ...meta });
                 plannerPos.y = 0;
             }
             if (doZ) {
-                stepQueue.push({ target: {x:plannerPos.x, y:plannerPos.y, z:2}, targetE: gcodeState.e, extruding: false, duration: 200, ...meta });
+                stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: 2 }, targetE: gcodeState.e, extruding: false, duration: 200, ...meta });
                 plannerPos.z = 2;
-                stepQueue.push({ target: {x:plannerPos.x, y:plannerPos.y, z:0}, targetE: gcodeState.e, extruding: false, duration: 500, ...meta });
+                stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: 0 }, targetE: gcodeState.e, extruding: false, duration: 500, ...meta });
                 plannerPos.z = 0;
             }
             lastMoveDir = null;
@@ -1690,9 +2179,9 @@ G1 X20 Y20 E20</textarea>
                 }
                 case 'G10': {
                     const rLen = firmwareSettings.retractLength;
-                    const dur = (rLen / (firmwareSettings.retractSpeed/60)) * 1000;
+                    const dur = (rLen / (firmwareSettings.retractSpeed / 60)) * 1000;
                     estTimeMs += dur;
-                    stepQueue.push({ target: {x: plannerPos.x, y: plannerPos.y, z: plannerPos.z}, targetE: gcodeState.e - rLen, extruding: false, retracting: true, duration: dur, ...meta });
+                    stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: plannerPos.z }, targetE: gcodeState.e - rLen, extruding: false, retracting: true, duration: dur, ...meta });
                     gcodeState.e -= rLen;
                     lastExtrudePoint = null;
                     leakPoint = null;
@@ -1700,14 +2189,14 @@ G1 X20 Y20 E20</textarea>
                 }
                 case 'G11': {
                     const rLen = firmwareSettings.retractLength;
-                    const dur = (rLen / (firmwareSettings.retractSpeed/60)) * 1000;
+                    const dur = (rLen / (firmwareSettings.retractSpeed / 60)) * 1000;
                     estTimeMs += dur;
-                    stepQueue.push({ target: {x: plannerPos.x, y: plannerPos.y, z: plannerPos.z}, targetE: gcodeState.e + rLen, extruding: false, duration: dur, ...meta });
+                    stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: plannerPos.z }, targetE: gcodeState.e + rLen, extruding: false, duration: dur, ...meta });
                     gcodeState.e += rLen;
                     break;
                 }
                 case 'G20': gcodeState.unitScale = 25.4; break;
-                case 'G21': gcodeState.unitScale = 1.0; break;  
+                case 'G21': gcodeState.unitScale = 1.0; break;
                 case 'G28': planHome(words, meta); break;
                 case 'G90': gcodeState.absolutePosition = true; break;
                 case 'G91': gcodeState.absolutePosition = false; break;
@@ -1718,15 +2207,15 @@ G1 X20 Y20 E20</textarea>
                     const resetY = words.Y !== undefined ? words.Y * gcodeState.unitScale : plannerPos.y;
                     const resetZ = words.Z !== undefined ? words.Z * gcodeState.unitScale : plannerPos.z;
                     const resetE = words.E !== undefined ? words.E * gcodeState.unitScale : gcodeState.e;
-                    
-                    stepQueue.push({ 
-                        type: 'coord_reset', 
+
+                    stepQueue.push({
+                        type: 'coord_reset',
                         pos: { x: resetX, y: resetY, z: resetZ },
                         targetE: resetE,
-                        duration: 1, 
-                        ...meta 
+                        duration: 1,
+                        ...meta
                     });
-                    
+
                     plannerPos.x = resetX;
                     plannerPos.y = resetY;
                     plannerPos.z = resetZ;
@@ -1771,22 +2260,24 @@ G1 X20 Y20 E20</textarea>
                     break;
                 case 'M84': case 'M18': steppersEnabled = false; break;
                 case 'M17': steppersEnabled = true; break;
-                case 'M108': 
+                case 'M108':
                     if (!isPreprocessing) m108Flag = true;
                     break;
-                case 'M105': 
+                case 'M105':
                     stepQueue.push({ type: 'echo', textFn: () => `ok T:${currentHotend.toFixed(1)} /${targetHotend.toFixed(1)} B:${currentBed.toFixed(1)} /${targetBed.toFixed(1)} @:0 B@:0`, logType: 'ok', duration: 1, ...meta });
                     break;
-                case 'M114': 
+                case 'M114':
                     stepQueue.push({ type: 'echo', textFn: () => `X:${currentPos.x.toFixed(2)} Y:${currentPos.y.toFixed(2)} Z:${currentPos.z.toFixed(2)} E:${currentE.toFixed(2)}`, logType: 'ok', duration: 1, ...meta });
                     break;
                 case 'M119':
-                    stepQueue.push({ type: 'echo', textFn: () => {
-                        const xStr = plannerPos.x <= 0.01 ? 'TRIGGERED' : 'open';
-                        const yStr = plannerPos.y <= 0.01 ? 'TRIGGERED' : 'open';
-                        const zStr = plannerPos.z <= 0.01 ? 'TRIGGERED' : 'open';
-                        return `Reporting endstop status\nx_min: ${xStr}\ny_min: ${yStr}\nz_min: ${zStr}`;
-                    }, logType: 'ok', duration: 1, ...meta });
+                    stepQueue.push({
+                        type: 'echo', textFn: () => {
+                            const xStr = plannerPos.x <= 0.01 ? 'TRIGGERED' : 'open';
+                            const yStr = plannerPos.y <= 0.01 ? 'TRIGGERED' : 'open';
+                            const zStr = plannerPos.z <= 0.01 ? 'TRIGGERED' : 'open';
+                            return `Reporting endstop status\nx_min: ${xStr}\ny_min: ${yStr}\nz_min: ${zStr}`;
+                        }, logType: 'ok', duration: 1, ...meta
+                    });
                     break;
                 case 'M24':
                     if (!isPreprocessing) {
@@ -1799,13 +2290,13 @@ G1 X20 Y20 E20</textarea>
                         if (isAnimating && !isPaused) { isPaused = true; updateUIState(); }
                     }
                     break;
-                case 'M115': 
+                case 'M115':
                     stepQueue.push({ type: 'echo', text: `FIRMWARE_NAME:Marlin 2.1 Simulated SOURCE_CODE_URL:github.com PROTOCOL_VERSION:1.0 MACHINE_TYPE:3D Printer EXTRUDER_COUNT:1`, logType: 'ok', duration: 1, ...meta });
                     break;
-                case 'M117': case 'M118': 
+                case 'M117': case 'M118':
                     stepQueue.push({ type: 'echo', text: `LCD Message: ${stringData || ''}`, logType: 'ok', duration: 1, ...meta });
                     break;
-                case 'M163': 
+                case 'M163':
                     if (words.S !== undefined && words.P !== undefined) {
                         mixColors[words.S] = words.P;
                         currentColorMode = 'multi';
@@ -1816,11 +2307,11 @@ G1 X20 Y20 E20</textarea>
                     const raiseZ = words.Z !== undefined ? words.Z : 10;
                     const retLen = words.L !== undefined ? words.L : firmwareSettings.retractLength;
                     let tempE = gcodeState.e;
-                    stepQueue.push({ target: {x: plannerPos.x, y: plannerPos.y, z: plannerPos.z + raiseZ}, targetE: tempE, extruding: false, duration: 1000, ...meta });
-                    stepQueue.push({ target: {x: plannerPos.x, y: plannerPos.y, z: plannerPos.z + raiseZ}, targetE: tempE - retLen, extruding: false, retracting: true, duration: 1000, ...meta });
+                    stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: plannerPos.z + raiseZ }, targetE: tempE, extruding: false, duration: 1000, ...meta });
+                    stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: plannerPos.z + raiseZ }, targetE: tempE - retLen, extruding: false, retracting: true, duration: 1000, ...meta });
                     stepQueue.push({ type: 'pause_for_user', duration: 1, ...meta });
-                    stepQueue.push({ target: {x: plannerPos.x, y: plannerPos.y, z: plannerPos.z + raiseZ}, targetE: tempE, extruding: false, duration: 1000, ...meta });
-                    stepQueue.push({ target: {x: plannerPos.x, y: plannerPos.y, z: plannerPos.z}, targetE: tempE, extruding: false, duration: 1000, ...meta });
+                    stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: plannerPos.z + raiseZ }, targetE: tempE, extruding: false, duration: 1000, ...meta });
+                    stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: plannerPos.z }, targetE: tempE, extruding: false, duration: 1000, ...meta });
                     currentMultiColorIndex++;
                     currentColorMode = 'multi';
                     document.getElementById('color-mode').value = 'multi';
@@ -1918,7 +2409,7 @@ G1 X20 Y20 E20</textarea>
                     break;
                 case 'M400':
                     break;
-                case 'M503': 
+                case 'M503':
                     stepQueue.push({ type: 'echo', text: `echo:Steps per unit:\n  M92 X${firmwareSettings.stepsPerMM.x.toFixed(2)} Y${firmwareSettings.stepsPerMM.y.toFixed(2)} Z${firmwareSettings.stepsPerMM.z.toFixed(2)} E${firmwareSettings.stepsPerMM.e.toFixed(2)}`, logType: 'ok', duration: 1, ...meta });
                     stepQueue.push({ type: 'echo', text: `echo:Max feedrates: X${firmwareSettings.maxFeedrate.x} Y${firmwareSettings.maxFeedrate.y} Z${firmwareSettings.maxFeedrate.z}`, logType: 'ok', duration: 1, ...meta });
                     stepQueue.push({ type: 'echo', text: `echo:Acceleration: P${firmwareSettings.printAccel} T${firmwareSettings.moveAccel} R${firmwareSettings.retractAccel}`, logType: 'ok', duration: 1, ...meta });
@@ -1932,24 +2423,24 @@ G1 X20 Y20 E20</textarea>
                             const px = x * stepX;
                             const py = y * stepY;
                             const dx = px - plannerPos.x, dy = py - plannerPos.y;
-                            stepQueue.push({ target: {x: px, y: py, z: probeZ}, targetE: gcodeState.e, extruding: false, duration: computeDuration(Math.hypot(dx, dy), 5000, {x:dx, y:dy, z:0}, false), ...meta });
+                            stepQueue.push({ target: { x: px, y: py, z: probeZ }, targetE: gcodeState.e, extruding: false, duration: computeDuration(Math.hypot(dx, dy), 5000, { x: dx, y: dy, z: 0 }, false), ...meta });
                             plannerPos.x = px; plannerPos.y = py;
-                            stepQueue.push({ target: {x: px, y: py, z: probeZ - 5}, targetE: gcodeState.e, extruding: false, duration: 150, ...meta });
-                            stepQueue.push({ target: {x: px, y: py, z: probeZ}, targetE: gcodeState.e, extruding: false, duration: 150, ...meta });
+                            stepQueue.push({ target: { x: px, y: py, z: probeZ - 5 }, targetE: gcodeState.e, extruding: false, duration: 150, ...meta });
+                            stepQueue.push({ target: { x: px, y: py, z: probeZ }, targetE: gcodeState.e, extruding: false, duration: 150, ...meta });
                         }
                     }
-                    const cDx = BED_WIDTH/2 - plannerPos.x, cDy = BED_DEPTH/2 - plannerPos.y;
-                    stepQueue.push({ target: {x: BED_WIDTH/2, y: BED_DEPTH/2, z: probeZ}, targetE: gcodeState.e, extruding: false, duration: computeDuration(Math.hypot(cDx, cDy), 5000, {x:cDx, y:cDy, z:0}, false), ...meta });
-                    plannerPos.x = BED_WIDTH/2; plannerPos.y = BED_DEPTH/2;
+                    const cDx = BED_WIDTH / 2 - plannerPos.x, cDy = BED_DEPTH / 2 - plannerPos.y;
+                    stepQueue.push({ target: { x: BED_WIDTH / 2, y: BED_DEPTH / 2, z: probeZ }, targetE: gcodeState.e, extruding: false, duration: computeDuration(Math.hypot(cDx, cDy), 5000, { x: cDx, y: cDy, z: 0 }, false), ...meta });
+                    plannerPos.x = BED_WIDTH / 2; plannerPos.y = BED_DEPTH / 2;
                     break;
                 }
-                default: 
+                default:
                     if (command !== 'T' && !command.startsWith('M') && !command.startsWith('G')) {
                         // ignore
                     } else {
                         stepQueue.push({ type: 'echo', text: `echo:Unknown command: "${rawLine}"`, logType: 'err', duration: 1, ...meta });
                     }
-                    break; 
+                    break;
             }
         }
 
@@ -2005,7 +2496,7 @@ G1 X20 Y20 E20</textarea>
                 const originalLine = lines[i].trim();
                 const upperLine = originalLine.toUpperCase();
 
-                if (upperLine.includes(';END GCODE') || upperLine.includes(';END_GCODE')) break; 
+                if (upperLine.includes(';END GCODE') || upperLine.includes(';END_GCODE')) break;
 
                 if (upperLine.includes('BASIC SETTINGS:')) {
                     const hMatch = upperLine.match(/LAYER HEIGHT:\s*([0-9.]+)/);
@@ -2047,22 +2538,22 @@ G1 X20 Y20 E20</textarea>
             if (layerHeight > 0) document.getElementById('ui-layer-height').value = layerHeight;
             if (wallThick > 0) document.getElementById('ui-wall-thick').value = wallThick;
             if (fill > 0) document.getElementById('ui-infill-density').value = fill;
-            
+
             estTimeMs = 0; estFilamentMm = 0; estLayers.clear(); maxModelZ = 0;
             layerMarkPercentages = [];
-            
+
             const savedState = saveFullState();
-            
+
             plannerPos.x = 0; plannerPos.y = 0; plannerPos.z = 0;
             gcodeState.e = 0;
             preHotend = AMBIENT_TEMP;
             preBed = AMBIENT_TEMP;
-            
+
             let tempLayerMarks = [];
             let prevZ = 0;
             let cumulativeStepCount = 0;
-            
-            let lineData = []; 
+
+            let lineData = [];
 
             for (let i = 0; i < lines.length; i++) {
                 const parsed = parseGCodeLine(lines[i], i + 1);
@@ -2072,14 +2563,14 @@ G1 X20 Y20 E20</textarea>
                     stepQueue = tempQueue;
                     planCommand(parsed.command, parsed.words, lines[i], i + 1, parsed.stringData);
                     stepQueue = originalStepQueue;
-                    
+
                     let hasExtrude = false;
                     let stepMaxZ = prevZ;
                     for (let s = 0; s < tempQueue.length; s++) {
                         const step = tempQueue[s];
                         if (step.extruding) {
                             // Fix: only count as layer if there is actual XYZ movement
-                            const isPureE = step.target && step.from && 
+                            const isPureE = step.target && step.from &&
                                 Math.abs(step.target.x - step.from.x) < 1e-6 &&
                                 Math.abs(step.target.y - step.from.y) < 1e-6 &&
                                 Math.abs(step.target.z - step.from.z) < 1e-6;
@@ -2087,19 +2578,19 @@ G1 X20 Y20 E20</textarea>
                         }
                         if (step.target && step.target.z > stepMaxZ) stepMaxZ = step.target.z;
                     }
-                    
+
                     if (hasExtrude && stepMaxZ > prevZ + 0.01 && stepMaxZ > 0) {
                         tempLayerMarks.push({ step: cumulativeStepCount, z: stepMaxZ });
                         prevZ = stepMaxZ;
                     }
-                    
+
                     lineData.push({ steps: tempQueue.length });
                     cumulativeStepCount += tempQueue.length;
                 }
             }
-            
+
             const total = cumulativeStepCount || 1;
-            
+
             progressDensity = new Array(100).fill(0);
             let curStep = 0;
             for (let i = 0; i < lineData.length; i++) {
@@ -2119,11 +2610,11 @@ G1 X20 Y20 E20</textarea>
             layerMarkPercentages = tempLayerMarks
                 .map(item => (item.step / total) * 100)
                 .filter(p => p > 0.3 && p < 99.7);
-                
+
             if (layerMarkPercentages.length > 0 && layerMarkPercentages[0] > 0.5) {
                 layerMarkPercentages.unshift(0);
             }
-            
+
             restoreFullState(savedState);
             updateStatsPanel();
             isPreprocessing = false;
@@ -2154,7 +2645,7 @@ G1 X20 Y20 E20</textarea>
         // ============================================================
         function updateAnimation(now) {
             if ((isPaused && !isSingleStep) || isStopped) { lastFrameTime = now; return; }
-            
+
             let dt = now - lastFrameTime;
             lastFrameTime = now;
             if (dt > 100) dt = 100;
@@ -2278,7 +2769,7 @@ G1 X20 Y20 E20</textarea>
 
                 let remainDuration = baseDuration - stepElapsed;
                 let stepT = Math.min(timeToSimulate, remainDuration);
-                
+
                 stepElapsed += stepT;
                 timeToSimulate -= stepT;
 
@@ -2291,7 +2782,7 @@ G1 X20 Y20 E20</textarea>
                 currentE = stepFrom.e + (stepTo.e - stepFrom.e) * et;
 
                 updateNozzleTransform();
-                
+
                 if (activeStep.extruding) {
                     if (currentHotend < COLD_EXTRUDE_MIN && !firmwareSettings.coldExtrudeAllow) {
                         if (!warnFlags.coldExtrude) {
@@ -2304,11 +2795,11 @@ G1 X20 Y20 E20</textarea>
                         leakPoint = null;
                     } else {
                         const pxx = currentPos.x, pyy = currentPos.z, pzz = currentPos.y;
-                        
+
                         if (lastExtrudePoint === null) {
                             lastExtrudePoint = { x: pxx, y: pyy, z: pzz };
                         } else {
-                            const distSq = (pxx - lastExtrudePoint.x)**2 + (pyy - lastExtrudePoint.y)**2 + (pzz - lastExtrudePoint.z)**2;
+                            const distSq = (pxx - lastExtrudePoint.x) ** 2 + (pyy - lastExtrudePoint.y) ** 2 + (pzz - lastExtrudePoint.z) ** 2;
                             if (distSq > 0.0001) {
                                 const col = getColorForZ(pzz);
                                 if (pushSegment(lastExtrudePoint.x, lastExtrudePoint.y, lastExtrudePoint.z, pxx, pyy, pzz, col[0], col[1], col[2])) {
@@ -2329,12 +2820,12 @@ G1 X20 Y20 E20</textarea>
                             leakPoint = { x: pxx, y: pyy, z: pzz };
                             leakDist = 0;
                         } else {
-                            const d = Math.sqrt((pxx - leakPoint.x)**2 + (pyy - leakPoint.y)**2 + (pzz - leakPoint.z)**2);
+                            const d = Math.sqrt((pxx - leakPoint.x) ** 2 + (pyy - leakPoint.y) ** 2 + (pzz - leakPoint.z) ** 2);
                             if (d > 0.001) { // Extremely low threshold for continuous stringing
                                 const fade = Math.max(0.3, 1.0 - (leakDist / 300.0)); // Fade out over 300mm, minimum 0.3 opacity
                                 const col = getColorForZ(pzz);
                                 if (pushSegment(leakPoint.x, leakPoint.y, leakPoint.z, pxx, pyy, pzz,
-                                                col[0] * 0.8 * fade, col[1] * 0.8 * fade, col[2] * 0.8 * fade)) { 
+                                    col[0] * 0.8 * fade, col[1] * 0.8 * fade, col[2] * 0.8 * fade)) {
                                     bufferUpdated = true;
                                 }
                                 leakDist += d;
@@ -2349,7 +2840,7 @@ G1 X20 Y20 E20</textarea>
                 if (stepElapsed >= baseDuration) {
                     if (activeStep.extruding && lastExtrudePoint && (currentHotend >= COLD_EXTRUDE_MIN || firmwareSettings.coldExtrudeAllow)) {
                         const pxx = currentPos.x, pyy = currentPos.z, pzz = currentPos.y;
-                        const distSq = (pxx - lastExtrudePoint.x)**2 + (pyy - lastExtrudePoint.y)**2 + (pzz - lastExtrudePoint.z)**2;
+                        const distSq = (pxx - lastExtrudePoint.x) ** 2 + (pyy - lastExtrudePoint.y) ** 2 + (pzz - lastExtrudePoint.z) ** 2;
                         if (distSq > 0.0001) {
                             const col = getColorForZ(pzz);
                             if (pushSegment(lastExtrudePoint.x, lastExtrudePoint.y, lastExtrudePoint.z, pxx, pyy, pzz, col[0], col[1], col[2])) {
@@ -2364,7 +2855,7 @@ G1 X20 Y20 E20</textarea>
                     if (isSingleStep) { isSingleStep = false; break; }
                 }
             }
-            
+
             if (bufferUpdated) {
                 pathGeometry.setDrawRange(0, segmentCount * 2);
                 pathGeometry.attributes.position.needsUpdate = true;
@@ -2386,11 +2877,11 @@ G1 X20 Y20 E20</textarea>
             document.getElementById('color-mode').value = 'single';
             lastLineNum = 0;
             m108Flag = false;
-            
-            estTimeMs = 0; 
-            estFilamentMm = 0; 
-            estLayers.clear(); 
-            
+
+            estTimeMs = 0;
+            estFilamentMm = 0;
+            estLayers.clear();
+
             Object.assign(firmwareSettings, JSON.parse(JSON.stringify(firmwareDefaults)));
         }
 
@@ -2398,7 +2889,7 @@ G1 X20 Y20 E20</textarea>
             if (isStopped) {
                 const text = textarea.value;
                 const lines = text.split('\n');
-                
+
                 currentPos = { x: 0, y: 0, z: 0 };
                 currentE = 0;
                 plannerPos.x = 0; plannerPos.y = 0; plannerPos.z = 0;
@@ -2424,7 +2915,7 @@ G1 X20 Y20 E20</textarea>
                 let warmBed = parseFloat(document.getElementById('bedTemp').value) || 0;
                 if (warmHotend === 0 || warmBed === 0) {
                     for (let i = 0; i < lines.length; i++) {
-                        const parsed = parseGCodeLine(lines[i], i+1);
+                        const parsed = parseGCodeLine(lines[i], i + 1);
                         if (!parsed) continue;
                         if ((parsed.command === 'M104' || parsed.command === 'M109') && warmHotend === 0) {
                             const s = parsed.words.S;
@@ -2446,10 +2937,10 @@ G1 X20 Y20 E20</textarea>
 
                 for (let i = 0; i < lines.length; i++) {
                     const rawLine = lines[i];
-                    const parsed = parseGCodeLine(rawLine, i+1);
-                    if (parsed) planCommand(parsed.command, parsed.words, rawLine, i+1, parsed.stringData);
+                    const parsed = parseGCodeLine(rawLine, i + 1);
+                    if (parsed) planCommand(parsed.command, parsed.words, rawLine, i + 1, parsed.stringData);
                 }
-                
+
                 totalSteps = stepQueue.length;
                 activeStep = null;
                 lastFrameTime = performance.now();
@@ -2480,11 +2971,11 @@ G1 X20 Y20 E20</textarea>
             leakPoint = null; leakDist = 0;
             lastLineNum = 0;
             lastLockState = null;
-            
+
             lineHighlight.style.display = 'none';
             lastHighlightLine = -1;
             lastHighlightScrollTop = -1;
-            
+
             setProgress(0);
             updateLineHighlight();
             updateUIState();
@@ -2498,10 +2989,17 @@ G1 X20 Y20 E20</textarea>
             const input = document.getElementById('terminal-input');
             const val = input.value.trim();
             if (!val) return;
-            
+
             logTerminal(`>> ${val}`, 'cmd');
             input.value = '';
-            
+
+            // Send to backend for state sync
+            fetch('/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ line: val })
+            });
+
             const lines = val.split('\n');
             for (let i = 0; i < lines.length; i++) {
                 const parsed = parseGCodeLine(lines[i], 0);
@@ -2529,6 +3027,14 @@ G1 X20 Y20 E20</textarea>
 
         function sendCmd(cmdStr) {
             if (isAnimating || isPaused) return;
+
+            // Send to backend for state sync
+            fetch('/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ line: cmdStr })
+            });
+
             const lines = cmdStr.split('\n');
             stepQueue = [];
             activeRing = [];
@@ -2553,7 +3059,7 @@ G1 X20 Y20 E20</textarea>
             const file = event.target.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = function (e) {
                 textarea.value = e.target.result;
                 lastLineNumberCount = -1;
                 preprocessGCode(e.target.result);
@@ -2567,12 +3073,12 @@ G1 X20 Y20 E20</textarea>
             BED_WIDTH = parseFloat(document.getElementById('ui-bed-x').value) || 220;
             BED_DEPTH = parseFloat(document.getElementById('ui-bed-y').value) || 220;
             MAX_HEIGHT = parseFloat(document.getElementById('ui-bed-z').value) || 380;
-            
+
             rebuildVolume();
             bedMesh.geometry.dispose();
             bedMesh.geometry = new THREE.PlaneGeometry(BED_WIDTH, BED_DEPTH);
-            bedMesh.position.set(BED_WIDTH/2, -0.2, BED_DEPTH/2);
-            
+            bedMesh.position.set(BED_WIDTH / 2, -0.2, BED_DEPTH / 2);
+
             spherical.radius = Math.max(BED_WIDTH, BED_DEPTH, MAX_HEIGHT) * 1.5;
             updateCamera();
             updateSliceModelFill();
@@ -2589,7 +3095,7 @@ G1 X20 Y20 E20</textarea>
         // 10. Render Loop (PID Thermal Dynamics & UI Update)
         // ============================================================
         const pidHotend = { kp: 0.06, ki: 0.0005, kd: 0.02, integral: 0, lastErr: 0 };
-        const pidBed    = { kp: 0.10, ki: 0.0003, kd: 0.01, integral: 0, lastErr: 0 };
+        const pidBed = { kp: 0.10, ki: 0.0003, kd: 0.01, integral: 0, lastErr: 0 };
 
         function pidThermalStep(state, current, target, dt, maxHeatRate, coolingFactor) {
             if (target < 1) {
@@ -2617,15 +3123,15 @@ G1 X20 Y20 E20</textarea>
         let lastThermalTime = 0;
         function updateThermalDynamics(now) {
             if (!lastThermalTime) lastThermalTime = now;
-            let dt = (now - lastThermalTime) / 1000; 
+            let dt = (now - lastThermalTime) / 1000;
             lastThermalTime = now;
             if (dt > 0.1) dt = 0.1;
             if (dt <= 0) return;
 
             let simDt = dt * currentSpeedMult;
-            
+
             if (simDt > 0) {
-                let steps = Math.max(1, Math.min(200, Math.ceil(simDt / 0.05))); 
+                let steps = Math.max(1, Math.min(200, Math.ceil(simDt / 0.05)));
                 let stepDt = simDt / steps;
                 const fanEffect = 1 + fanSpeed * 0.5;
 
@@ -2662,7 +3168,7 @@ G1 X20 Y20 E20</textarea>
 
             const bedFactor = Math.max(0, currentBed - AMBIENT_TEMP) / 80;
             bedMat.color.setRGB(0.16 + bedFactor * 0.4, 0.16 + bedFactor * 0.1, 0.22 - bedFactor * 0.1);
-            
+
             if (now - lastUIUpdateTime > 100) {
                 updateUIState();
                 lastUIUpdateTime = now;
@@ -2676,7 +3182,7 @@ G1 X20 Y20 E20</textarea>
             updateCamera();
             renderer.render(scene, camera);
         }
-        
+
         updateLineNumbers();
         updateNozzleTransform();
         updateLanguage();
@@ -2698,19 +3204,17 @@ G1 X20 Y20 E20</textarea>
         evtSource.addEventListener('gcode', (e) => {
             const data = JSON.parse(e.data);
 
-            // Filter out query commands handled by backend
-            if (data.line.startsWith('M105') || data.line.startsWith('M114') || data.line.startsWith('M119')) {
-                return;
-            }
+            // If this command came from the web UI, ignore it to prevent double execution
+            if (data.source === 'web') return;
 
-            // Log to the web terminal
+            // Log the incoming command
             logTerminal(`>> ${data.line}`, 'cmd');
 
+            // Execute the external command locally (bypassing terminal input)
             const lines = data.line.split('\n');
             for (let i = 0; i < lines.length; i++) {
                 const parsed = parseGCodeLine(lines[i], 0);
                 if (parsed) {
-                    // Clean the local queue if we were idle
                     if (isStopped) {
                         stepQueue = [];
                         activeRing = [];
@@ -2718,7 +3222,6 @@ G1 X20 Y20 E20</textarea>
 
                     planCommand(parsed.command, parsed.words, lines[i], 0, parsed.stringData);
 
-                    // Force start the animation loop
                     if (stepQueue.length > 0 || activeRing.length > 0) {
                         if (isStopped) {
                             isStopped = false;
@@ -2728,24 +3231,41 @@ G1 X20 Y20 E20</textarea>
                             activeStep = null;
                             lastFrameTime = performance.now();
                             jobStartTime = performance.now();
-
-                            // Log OK to web terminal
-                            logTerminal("ok", "ok");
                         }
                         totalSteps = stepQueue.length + activeRing.length;
                     }
                 }
             }
+            logTerminal("ok", "ok");
             updateUIState();
         });
 
-        // Sync real-time temperature and position state from backend
         evtSource.addEventListener('state', (e) => {
-            const state = JSON.parse(e.data);
-            // Optional: Update the front-end temperature display if needed
-            // targetHotend = state.hotendTarget;
-            // targetBed = state.bedTarget;
+            const data = JSON.parse(e.data);
+
+            if (data.fanSpeed !== undefined) fanSpeed = data.fanSpeed;
+            if (data.speedFactor !== undefined) firmwareSettings.speedFactor = data.speedFactor;
+            if (data.flowFactor !== undefined) firmwareSettings.flowFactor = data.flowFactor;
+
+            // Only sync coordinates when the local UI is completely idle
+            // This prevents the frontend from teleporting while executing a local animation
+            if (isStopped || (!isAnimating && !activeStep)) {
+                if (Math.abs(plannerPos.x - data.x) > 0.01 || Math.abs(plannerPos.y - data.y) > 0.01) {
+                    plannerPos.x = data.x;
+                    plannerPos.y = data.y;
+                    plannerPos.z = data.z;
+
+                    currentPos.x = data.x;
+                    currentPos.y = data.y;
+                    currentPos.z = data.z;
+
+                    updateNozzleTransform();
+                }
+            }
         });
+
+        if (typeof updateUIState === 'function') updateUIState();
     </script>
 </body>
+
 </html>
