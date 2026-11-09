@@ -2619,12 +2619,15 @@ G1 X20 Y20 E20</textarea>
             isPreprocessing = true;
             updateLineNumbers();
             const lines = text.split('\n');
-            let lastHotend = -1, lastBed = -1, layerHeight = 0, wallThick = 0, fill = 0;
+            let lastHotend = -1, lastBed = -1;
+            let layerHeight = 0, wallThick = 0, fill = 0;
 
             for (let i = 0; i < lines.length; i++) {
                 const originalLine = lines[i].trim();
                 const upperLine = originalLine.toUpperCase();
+
                 if (upperLine.includes(';END GCODE') || upperLine.includes(';END_GCODE')) break;
+
                 if (upperLine.includes('BASIC SETTINGS:')) {
                     const hMatch = upperLine.match(/LAYER HEIGHT:\s*([0-9.]+)/);
                     const wMatch = upperLine.match(/WALLS:\s*([0-9.]+)/);
@@ -2633,12 +2636,14 @@ G1 X20 Y20 E20</textarea>
                     if (wMatch) wallThick = parseFloat(wMatch[1]);
                     if (fMatch) fill = parseFloat(fMatch[1]);
                 }
+
                 let hm = originalLine.match(/LAYER[_ ]HEIGHT\s*[:=]\s*([0-9.]+)/i);
                 if (hm) layerHeight = parseFloat(hm[1]);
                 let wm = originalLine.match(/(?:WALLS|WALL[_ ]THICKNESS|PERIMETERS)\s*[:=]\s*([0-9.]+)/i);
                 if (wm) wallThick = parseFloat(wm[1]);
                 let fm = originalLine.match(/(?:FILL|INFILL[_ ]DENSITY|INFILL)\s*[:=]\s*([0-9.]+)/i);
                 if (fm) fill = parseFloat(fm[1]);
+
                 let tm = originalLine.match(/FIRST[_ ]LAYER[_ ]TEMPERATURE\s*[:=]\s*(\d+)/i);
                 if (tm) lastHotend = Math.round(parseFloat(tm[1]));
                 let bm = originalLine.match(/FIRST[_ ]LAYER[_ ]BED[_ ]TEMPERATURE\s*[:=]\s*(\d+)/i);
@@ -2646,9 +2651,16 @@ G1 X20 Y20 E20</textarea>
 
                 const parsed = parseGCodeLine(originalLine, i + 1);
                 if (!parsed) continue;
-                const cmd = parsed.command, words = parsed.words;
-                if (cmd === 'M104' || cmd === 'M109') { if (words.S !== undefined && words.S > 0) lastHotend = Math.round(words.S); }
-                if (cmd === 'M140' || cmd === 'M190') { if (words.S !== undefined && words.S > 0) lastBed = Math.round(words.S); }
+
+                const cmd = parsed.command;
+                const words = parsed.words;
+
+                if (cmd === 'M104' || cmd === 'M109') {
+                    if (words.S !== undefined && words.S > 0) lastHotend = Math.round(words.S);
+                }
+                if (cmd === 'M140' || cmd === 'M190') {
+                    if (words.S !== undefined && words.S > 0) lastBed = Math.round(words.S);
+                }
             }
 
             if (lastHotend > -1) document.getElementById('printTemp').value = lastHotend;
@@ -2659,11 +2671,23 @@ G1 X20 Y20 E20</textarea>
 
             estTimeMs = 0; estFilamentMm = 0; estLayers.clear(); maxModelZ = 0;
             layerMarkPercentages = [];
-            const savedState = saveFullState();
-            plannerPos.x = 0; plannerPos.y = 0; plannerPos.z = 0;
-            gcodeState.e = 0; preHotend = AMBIENT_TEMP; preBed = AMBIENT_TEMP;
 
-            let tempLayerMarks = [], prevZ = 0, cumulativeStepCount = 0, lineData = [];
+            const savedState = saveFullState();
+
+            // Use current physical position for accurate estimation
+            plannerPos.x = currentPos.x;
+            plannerPos.y = currentPos.y;
+            plannerPos.z = currentPos.z;
+
+            gcodeState.e = 0;
+            preHotend = AMBIENT_TEMP;
+            preBed = AMBIENT_TEMP;
+
+            let tempLayerMarks = [];
+            let prevZ = 0;
+            let cumulativeStepCount = 0;
+
+            let lineData = [];
 
             for (let i = 0; i < lines.length; i++) {
                 const parsed = parseGCodeLine(lines[i], i + 1);
@@ -2674,7 +2698,8 @@ G1 X20 Y20 E20</textarea>
                     planCommand(parsed.command, parsed.words, lines[i], i + 1, parsed.stringData);
                     stepQueue = originalStepQueue;
 
-                    let hasExtrude = false, stepMaxZ = prevZ;
+                    let hasExtrude = false;
+                    let stepMaxZ = prevZ;
                     for (let s = 0; s < tempQueue.length; s++) {
                         const step = tempQueue[s];
                         if (step.extruding) {
@@ -2686,31 +2711,42 @@ G1 X20 Y20 E20</textarea>
                         }
                         if (step.target && step.target.z > stepMaxZ) stepMaxZ = step.target.z;
                     }
+
                     if (hasExtrude && stepMaxZ > prevZ + 0.01 && stepMaxZ > 0) {
                         tempLayerMarks.push({ step: cumulativeStepCount, z: stepMaxZ });
                         prevZ = stepMaxZ;
                     }
+
                     lineData.push({ steps: tempQueue.length });
                     cumulativeStepCount += tempQueue.length;
                 }
             }
 
             const total = cumulativeStepCount || 1;
+
             progressDensity = new Array(100).fill(0);
             let curStep = 0;
             for (let i = 0; i < lineData.length; i++) {
                 const startPct = (curStep / total) * 100;
                 const endPct = ((curStep + lineData[i].steps) / total) * 100;
-                const startBin = Math.floor(startPct), endBin = Math.floor(endPct);
+                const startBin = Math.floor(startPct);
+                const endBin = Math.floor(endPct);
                 const stepPerBin = lineData[i].steps / Math.max(1, endBin - startBin + 1);
                 for (let b = startBin; b <= endBin; b++) {
-                    if (b >= 0 && b < 100) progressDensity[b] += stepPerBin;
+                    if (b >= 0 && b < 100) {
+                        progressDensity[b] += stepPerBin;
+                    }
                 }
                 curStep += lineData[i].steps;
             }
 
-            layerMarkPercentages = tempLayerMarks.map(item => (item.step / total) * 100).filter(p => p > 0.3 && p < 99.7);
-            if (layerMarkPercentages.length > 0 && layerMarkPercentages[0] > 0.5) layerMarkPercentages.unshift(0);
+            layerMarkPercentages = tempLayerMarks
+                .map(item => (item.step / total) * 100)
+                .filter(p => p > 0.3 && p < 99.7);
+
+            if (layerMarkPercentages.length > 0 && layerMarkPercentages[0] > 0.5) {
+                layerMarkPercentages.unshift(0);
+            }
 
             restoreFullState(savedState);
             updateStatsPanel();
@@ -2950,20 +2986,34 @@ G1 X20 Y20 E20</textarea>
         function toggleMainAction() {
             if (isStopped) {
                 const text = textarea.value;
+
                 if (text && text.trim().length > 0) postBackendLoad(text);
 
                 const lines = text.split('\n');
-                currentPos = { x: 0, y: 0, z: 0 }; currentE = 0;
-                plannerPos.x = 0; plannerPos.y = 0; plannerPos.z = 0;
-                gcodeState.e = 0; gcodeState.feedrate = 1500;
-                gcodeState.absolutePosition = true; gcodeState.absoluteExtrusion = true;
-                gcodeState.absoluteArcCenter = false; gcodeState.unitScale = 1.0;
-                lastMoveDir = null; lastExtrudePoint = null;
+
+                // Do NOT reset physical position to 0. Keep it as is.
+                currentE = 0;
+
+                // Initialize planner position from the current physical position
+                plannerPos.x = currentPos.x;
+                plannerPos.y = currentPos.y;
+                plannerPos.z = currentPos.z;
+
+                gcodeState.e = 0;
+                gcodeState.feedrate = 1500;
+                gcodeState.absolutePosition = true;
+                gcodeState.absoluteExtrusion = true;
+                gcodeState.absoluteArcCenter = false;
+                gcodeState.unitScale = 1.0;
+                lastMoveDir = null;
+                lastExtrudePoint = null;
                 fanP0 = 0; fanP1 = 0; fanP2 = 0; fanSpeed = 0;
                 steppersEnabled = true;
-                resetRuntimeFlags(); updateNozzleTransform();
+                resetRuntimeFlags();
+                updateNozzleTransform();
                 isStopped = false; isPaused = false; isAnimating = true; isSingleStep = false;
-                stepQueue = []; activeRing = [];
+                stepQueue = [];
+                activeRing = [];
                 setProgress(0);
                 jobStartTime = performance.now();
 
@@ -2984,8 +3034,12 @@ G1 X20 Y20 E20</textarea>
                     }
                 }
 
-                if (warmBed > 0) stepQueue.push({ type: 'set_temp', target: warmBed, isBed: true, wait: true, duration: 1, rawLine: 'Auto-warm Bed', lineNum: 0 });
-                if (warmHotend > 0) stepQueue.push({ type: 'set_temp', target: warmHotend, isBed: false, wait: true, duration: 1, rawLine: 'Auto-warm Hotend', lineNum: 0 });
+                if (warmBed > 0) {
+                    stepQueue.push({ type: 'set_temp', target: warmBed, isBed: true, wait: true, duration: 1, rawLine: 'Auto-warm Bed', lineNum: 0 });
+                }
+                if (warmHotend > 0) {
+                    stepQueue.push({ type: 'set_temp', target: warmHotend, isBed: false, wait: true, duration: 1, rawLine: 'Auto-warm Hotend', lineNum: 0 });
+                }
 
                 for (let i = 0; i < lines.length; i++) {
                     const rawLine = lines[i];
@@ -2994,10 +3048,14 @@ G1 X20 Y20 E20</textarea>
                 }
 
                 totalSteps = stepQueue.length;
-                activeStep = null; lastFrameTime = performance.now(); lastLockState = null;
+                activeStep = null;
+                lastFrameTime = performance.now();
+                lastLockState = null;
             } else {
-                isPaused = !isPaused; isSingleStep = false;
+                isPaused = !isPaused;
+                isSingleStep = false;
                 if (!isPaused) lastFrameTime = performance.now();
+
                 postBackendControl(isPaused ? 'pause' : 'resume');
             }
             updateUIState();

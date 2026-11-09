@@ -128,7 +128,7 @@ export class PrintExecutor {
         this.pauseReason = null;
         this._pendingWait = null;
 
-        this.core.pos = { x: 0, y: 0, z: 0 };
+        // Do NOT reset core.pos to 0. The head is physically somewhere.
         this.core.state.e = 0;
         this.core.state.absolutePosition = true;
         this.core.state.absoluteExtrusion = true;
@@ -143,7 +143,9 @@ export class PrintExecutor {
             absolutePosition: true, absoluteExtrusion: true,
             absoluteArcCenter: false, e: 0, feedrate: 1500, unitScale: 1.0
         };
-        this.planningPos = { x: 0, y: 0, z: 0 };
+
+        // Initialize planning position from current physical position
+        this.planningPos = { x: this.core.pos.x, y: this.core.pos.y, z: this.core.pos.z };
 
         const lines = String(gcodeText).split('\n');
         for (let i = 0; i < lines.length; i++) {
@@ -1109,52 +1111,52 @@ export class PrinterCore {
 
     _queryTemps() {
         return 'ok T:' + this.temps.hotend.toFixed(1) +
-               ' /' + this.temps.hotendTarget.toFixed(1) +
-               ' B:' + this.temps.bed.toFixed(1) +
-               ' /' + this.temps.bedTarget.toFixed(1) +
-               ' @:0 B@:0';
+            ' /' + this.temps.hotendTarget.toFixed(1) +
+            ' B:' + this.temps.bed.toFixed(1) +
+            ' /' + this.temps.bedTarget.toFixed(1) +
+            ' @:0 B@:0';
     }
     _queryPosition() {
         return 'ok X:' + this.pos.x.toFixed(2) +
-               ' Y:' + this.pos.y.toFixed(2) +
-               ' Z:' + this.pos.z.toFixed(2) +
-               ' E:' + this.state.e.toFixed(2);
+            ' Y:' + this.pos.y.toFixed(2) +
+            ' Z:' + this.pos.z.toFixed(2) +
+            ' E:' + this.state.e.toFixed(2);
     }
     _queryFirmware() {
         return 'ok FIRMWARE_NAME:' + FIRMWARE_NAME +
-               ' FIRMWARE_VERSION:' + FIRMWARE_VERSION +
-               ' SOURCE_CODE_URL:github.com PROTOCOL_VERSION:1.0' +
-               ' MACHINE_TYPE:3D Printer EXTRUDER_COUNT:1';
+            ' FIRMWARE_VERSION:' + FIRMWARE_VERSION +
+            ' SOURCE_CODE_URL:github.com PROTOCOL_VERSION:1.0' +
+            ' MACHINE_TYPE:3D Printer EXTRUDER_COUNT:1';
     }
     _queryEndstops() {
         const xStr = this.pos.x <= 0.1 ? 'TRIGGERED' : 'open';
         const yStr = this.pos.y <= 0.1 ? 'TRIGGERED' : 'open';
         const zStr = this.pos.z <= 0.1 ? 'TRIGGERED' : 'open';
         return 'Reporting endstop status\nx_min: ' + xStr +
-               '\ny_min: ' + yStr + '\nz_min: ' + zStr + '\nok';
+            '\ny_min: ' + yStr + '\nz_min: ' + zStr + '\nok';
     }
     _querySettings() {
         const s = this.settings;
         return [
             'echo:Steps per unit:',
             'echo:  M92 X' + s.stepsPerMM.x.toFixed(2) +
-                ' Y' + s.stepsPerMM.y.toFixed(2) +
-                ' Z' + s.stepsPerMM.z.toFixed(2) +
-                ' E' + s.stepsPerMM.e.toFixed(2),
+            ' Y' + s.stepsPerMM.y.toFixed(2) +
+            ' Z' + s.stepsPerMM.z.toFixed(2) +
+            ' E' + s.stepsPerMM.e.toFixed(2),
             'echo:Maximum feedrates (mm/s):',
             'echo:  M203 X' + s.maxFeedrate.x.toFixed(2) +
-                ' Y' + s.maxFeedrate.y.toFixed(2) +
-                ' Z' + s.maxFeedrate.z.toFixed(2) +
-                ' E' + s.maxFeedrate.e.toFixed(2),
+            ' Y' + s.maxFeedrate.y.toFixed(2) +
+            ' Z' + s.maxFeedrate.z.toFixed(2) +
+            ' E' + s.maxFeedrate.e.toFixed(2),
             'echo:Maximum Acceleration (mm/s2):',
             'echo:  M201 X' + s.maxAccel.x.toFixed(0) +
-                ' Y' + s.maxAccel.y.toFixed(0) +
-                ' Z' + s.maxAccel.z.toFixed(0) +
-                ' E' + s.maxAccel.e.toFixed(0),
+            ' Y' + s.maxAccel.y.toFixed(0) +
+            ' Z' + s.maxAccel.z.toFixed(0) +
+            ' E' + s.maxAccel.e.toFixed(0),
             'echo:Acceleration (mm/s2): P<print> T<travel> R<retract>',
             'echo:  M204 P' + s.printAccel.toFixed(0) +
-                ' T' + s.moveAccel.toFixed(0) +
-                ' R' + s.retractAccel.toFixed(0),
+            ' T' + s.moveAccel.toFixed(0) +
+            ' R' + s.retractAccel.toFixed(0),
             'echo:Advanced: J<junction>',
             'echo:  M205 J' + s.junctionDeviation.toFixed(3),
             'ok'
