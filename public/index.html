@@ -14,7 +14,6 @@
             user-select: none;
         }
 
-        /* Add user-select to allow copying terminal text */
         #terminal-output,
         #terminal-output * {
             user-select: text !important;
@@ -22,7 +21,6 @@
             cursor: text;
         }
 
-        /* Control Panel Container */
         #control-panel {
             position: absolute;
             top: 10px;
@@ -65,7 +63,6 @@
             transform: translateX(-50px) scale(0.9);
         }
 
-        /* Sticky Header for Panel */
         .header {
             position: sticky;
             top: -12px;
@@ -80,6 +77,12 @@
             align-items: center;
         }
 
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
         .header h3 {
             margin: 0;
             font-size: 15px;
@@ -91,7 +94,24 @@
             align-items: center;
         }
 
-        /* Unified Top Buttons */
+        .sse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #666;
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+
+        .sse-dot.connected {
+            background: #4caf50;
+            box-shadow: 0 0 6px #4caf50;
+        }
+
+        .sse-dot.disconnected {
+            background: #d32f2f;
+            box-shadow: 0 0 6px #d32f2f;
+        }
+
         .top-btn {
             background: #333;
             width: 24px;
@@ -116,7 +136,6 @@
             border-color: #777;
         }
 
-        /* Progress Bar & Layer Marks */
         .progress-wrapper {
             position: relative;
             margin-bottom: 12px;
@@ -131,7 +150,6 @@
             box-shadow: inset 0 0 0 1px #333;
         }
 
-        /* Semi-transparent progress fill so histogram shows through */
         #main-progress-bar {
             height: 100%;
             width: 0%;
@@ -144,7 +162,6 @@
             z-index: 2;
         }
 
-        /* Instruction Density Blocks */
         #model-layer-marks {
             position: absolute;
             top: 0;
@@ -160,10 +177,8 @@
             top: 0;
             bottom: 0;
             background: rgba(255, 255, 255, 0.85);
-            /* Pure white block for density */
         }
 
-        /* Dark tick mark to stand out on white/blue */
         .layer-tick {
             position: absolute;
             top: 0;
@@ -258,7 +273,6 @@
             justify-self: start;
         }
 
-        /* Editor Wrapper */
         .editor-wrapper {
             display: flex;
             position: relative;
@@ -286,6 +300,7 @@
 
         #gcode-input {
             flex: 1;
+            min-width: 0;
             background: transparent;
             color: #fff;
             padding: 6px;
@@ -326,7 +341,6 @@
             display: none;
         }
 
-        /* Buttons Layout */
         .btn-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -422,7 +436,6 @@
             user-select: none;
         }
 
-        /* Stats Panel */
         .stats-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -445,7 +458,6 @@
             font-family: monospace;
         }
 
-        /* Terminal */
         #terminal-output {
             background: #000;
             color: #ccc;
@@ -493,7 +505,6 @@
             padding: 4px 8px;
         }
 
-        /* Slider */
         .slider-container {
             padding: 6px;
             display: flex;
@@ -512,7 +523,6 @@
             width: 100%;
         }
 
-        /* Slice track: model-height fill + clipping handle share the same bar */
         .slice-progress-track {
             position: relative;
             height: 14px;
@@ -586,7 +596,6 @@
             box-sizing: border-box;
         }
 
-        /* Modal */
         .modal {
             position: absolute;
             top: 50%;
@@ -598,7 +607,9 @@
             padding: 16px;
             z-index: 9999;
             display: none;
-            width: 320px;
+            width: 520px;
+            max-height: 85vh;
+            overflow-y: auto;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
             color: #ddd;
         }
@@ -608,10 +619,36 @@
             color: #fff;
         }
 
+        .modal h5 {
+            margin: 12px 0 6px 0;
+            color: #ffd54f;
+            font-size: 12px;
+        }
+
         .modal p {
             font-size: 12px;
-            margin: 6px 0;
-            line-height: 1.4;
+            margin: 4px 0;
+            line-height: 1.5;
+        }
+
+        .modal table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            margin-bottom: 8px;
+        }
+
+        .modal table td {
+            padding: 3px 6px;
+            border-bottom: 1px solid #333;
+            vertical-align: top;
+        }
+
+        .modal table td:first-child {
+            color: #00d4ff;
+            font-family: monospace;
+            white-space: nowrap;
+            width: 34%;
         }
 
         .modal .code {
@@ -627,9 +664,6 @@
             background: #555;
         }
 
-        /* ==========================================
-           Refined Gooey Drag System
-           ========================================== */
         #goo-container {
             position: fixed;
             top: 0;
@@ -728,10 +762,15 @@
             white-space: nowrap;
             pointer-events: none;
         }
+
+        body.drag-over {
+            outline: 2px dashed #ff9800;
+            outline-offset: -12px;
+        }
     </style>
 
     <script src="./three.min.js"></script>
-    <script src="./tween.umd.js"></script>
+    <script src="./model.js"></script>
 
     <script>
         (function () {
@@ -788,17 +827,12 @@
 </head>
 
 <body>
-
-    <!-- SVG Gooey Filter Definition -->
     <svg style="position: absolute; width: 0; height: 0;">
         <defs>
             <filter id="goo">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
-                <feColorMatrix in="blur" mode="matrix" values="
-                    1 0 0 0 0  
-                    0 1 0 0 0  
-                    0 0 1 0 0  
-                    0 0 0 20 -9" result="goo" />
+                <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9"
+                    result="goo" />
                 <feComposite in="SourceGraphic" in2="goo" operator="atop" />
             </filter>
         </defs>
@@ -821,7 +855,10 @@
 
     <div id="control-panel">
         <div class="header">
-            <h3 id="ui-title" data-i18n="title">3D 打印机仿真器</h3>
+            <div class="header-left">
+                <div class="sse-dot" id="sse-dot" title="SSE"></div>
+                <h3 id="ui-title" data-i18n="title">3D 打印机仿真器</h3>
+            </div>
             <div class="header-controls">
                 <div class="top-btn help" id="btn-help" onclick="toggleHelp()">?</div>
                 <div class="top-btn" id="btn-about" onclick="toggleAbout()">i</div>
@@ -925,6 +962,31 @@ G1 X20 Y20 E20</textarea>
             </select>
         </div>
 
+        <details open id="fan-details">
+            <summary data-i18n="fan">风扇 (Fan)</summary>
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span data-i18n="fanModel">模型风扇 (P0)</span>
+                    <span id="fan-p0-val">0% (0 RPM)</span>
+                </div>
+                <input type="range" id="fan-p0" min="0" max="255" value="0">
+            </div>
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span data-i18n="fanHotend">热端风扇 (P1, 自动)</span>
+                    <span id="fan-p1-val">0% (0 RPM)</span>
+                </div>
+                <input type="range" id="fan-p1" min="0" max="255" value="0" disabled>
+            </div>
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span data-i18n="fanController">控制器风扇 (P2)</span>
+                    <span id="fan-p2-val">0% (0 RPM)</span>
+                </div>
+                <input type="range" id="fan-p2" min="0" max="255" value="0">
+            </div>
+        </details>
+
         <details open id="jog-details">
             <summary data-i18n="jogCtrl">手动控制 (Jog)</summary>
             <div class="jog-panel">
@@ -944,6 +1006,7 @@ G1 X20 Y20 E20</textarea>
             <div class="term-input-row">
                 <input type="text" id="terminal-input" placeholder="e.g. M114, M503"
                     onkeydown="if(event.key === 'Enter') sendTerminalCommand()">
+                <button class="secondary" onclick="clearTerminal()" title="Clear Terminal">🗑</button>
                 <button class="secondary" onclick="sendTerminalCommand()">Send</button>
             </div>
         </details>
@@ -1019,44 +1082,194 @@ G1 X20 Y20 E20</textarea>
         </details>
     </div>
 
-    <!-- Help Modal -->
     <div id="help-modal" class="modal">
         <h4 data-i18n="helpTitle">帮助与说明</h4>
-        <p><b data-i18n="statusParams">状态栏参数：</b></p>
-        <p>• <span class="code">Q</span> : <span data-i18n="helpQ">队列中等待执行的指令数。</span></p>
-        <p>• <span class="code">Ring</span> : <span data-i18n="helpRing">环形缓冲区内的指令数。</span></p>
-        <p>• <span class="code">Spd</span> : <span data-i18n="helpSpd">当前速度倍率（可通过 M220 或面板修改）。</span></p>
-        <p>• <span class="code">Flow</span> : <span data-i18n="helpFlow">当前挤出流量倍率（可通过 M221 修改）。</span></p>
-        <p>• <span class="code">F</span> : <span data-i18n="helpF">当前进给速度 (mm/min)。</span></p>
-        <p>• <span class="code">E</span> : <span data-i18n="helpE">挤出机累计位置。</span></p>
-        <p><br><b data-i18n="opsTips">操作提示：</b></p>
-        <p>• <span data-i18n="tip1">暂停时点击“单步”可逐行执行 G-code。</span></p>
-        <p>• <span data-i18n="tip2">运行时可拖动“分层剖切”滑块查看内部结构。</span></p>
-        <p>• <span data-i18n="tip3">终端控制台支持实时发送如 M114、M503 等查询指令。</span></p>
+        <h5 data-i18n="helpSec1">一、顶部与进度条</h5>
+        <table>
+            <tr>
+                <td>SSE dot</td>
+                <td data-i18n="helpSseDot">绿点表示与 Node 后端已连接，红点表示断开。</td>
+            </tr>
+            <tr>
+                <td>?</td>
+                <td data-i18n="helpBtnHelp">打开本帮助弹窗。</td>
+            </tr>
+            <tr>
+                <td>i</td>
+                <td data-i18n="helpBtnAbout">关于本软件与更新日志。</td>
+            </tr>
+            <tr>
+                <td>中 / EN</td>
+                <td data-i18n="helpBtnLang">中英双语切换。</td>
+            </tr>
+            <tr>
+                <td>➖</td>
+                <td data-i18n="helpBtnCollapse">折叠控制面板（折叠后出现右上悬浮球，可拖拽回显）。</td>
+            </tr>
+            <tr>
+                <td>Progress</td>
+                <td data-i18n="helpProgressBar">进度条分三层：白色块表示 G-code 执行密度，蓝色为执行进度，黑色竖线是层分割线。</td>
+            </tr>
+        </table>
+        <h5 data-i18n="helpSec2">二、运行控制</h5>
+        <table>
+            <tr>
+                <td>Run / Pause</td>
+                <td data-i18n="helpBtnRun">开始或暂停播放。运行时会同时把整份程序同步到 Node 后端，供 Hermes 通过 TCP 查询 M114 得到相同坐标。</td>
+            </tr>
+            <tr>
+                <td>Stop</td>
+                <td data-i18n="helpBtnStop">停止播放，同时清空后端队列。</td>
+            </tr>
+            <tr>
+                <td>Step</td>
+                <td data-i18n="helpBtnStep">暂停时逐段执行。</td>
+            </tr>
+            <tr>
+                <td>Import</td>
+                <td data-i18n="helpBtnImport">打开文件选择器导入 .gcode / .gco / .g 文件（也可以直接拖到窗口）。</td>
+            </tr>
+            <tr>
+                <td>Clear</td>
+                <td data-i18n="helpBtnClear">清空已绘制的 3D 轨迹（编辑器内容保留）。</td>
+            </tr>
+            <tr>
+                <td>Drag &amp; Drop</td>
+                <td data-i18n="helpDragDrop">将 .gcode 文件拖到窗口任意位置即可导入。</td>
+            </tr>
+        </table>
+        <h5 data-i18n="helpSec3">三、面板参数</h5>
+        <table>
+            <tr>
+                <td data-i18n="speedMult">播放倍速</td>
+                <td data-i18n="helpSpeedMult">0.1x – 2000x。作用于浏览器本地播放与后端虚拟时钟，Hermes 的 TCP 指令跟随同一速度。</td>
+            </tr>
+            <tr>
+                <td data-i18n="colorMode">颜色模式</td>
+                <td data-i18n="helpColorMode">Z 渐变 / 彩虹 / 单色 / 多色。多色模式下响应 M600 与 T0–T3。停止或换文件后保留上次选择。</td>
+            </tr>
+            <tr>
+                <td data-i18n="fan">风扇 (Fan)</td>
+                <td data-i18n="helpFan">P0 模型风扇、P1 热端风扇（≥50°C 强制 100%，auto）、P2 控制器风扇。滑块发 M106 P&lt;n&gt; S&lt;0-255&gt;。
+                </td>
+            </tr>
+            <tr>
+                <td data-i18n="zHeight">Z 轴高度</td>
+                <td data-i18n="helpSlice">拖动裁剪平面查看模型内部。下方淡蓝条表示模型总高占床高的比例。</td>
+            </tr>
+            <tr>
+                <td data-i18n="stats">任务预估</td>
+                <td data-i18n="helpStats">耗时、线材长度（m）、重量（g，密度 1.24g/cm³）、层数。由 G-code 预分析得出。</td>
+            </tr>
+            <tr>
+                <td data-i18n="jogCtrl">Jog</td>
+                <td data-i18n="helpJog">X± / Y± / Z± 6 个方向，Home 执行完整 G28 序列。</td>
+            </tr>
+            <tr>
+                <td data-i18n="terminal">终端</td>
+                <td data-i18n="helpTerminal">直接输入任意 Marlin G-code。M105/M114/M115/M119/M503 会返回查询结果。</td>
+            </tr>
+            <tr>
+                <td data-i18n="quality">质量</td>
+                <td data-i18n="helpQuality">层高、外壳厚度、回抽开关（从 G-code 头注释自动填充）。</td>
+            </tr>
+            <tr>
+                <td data-i18n="infill">填充</td>
+                <td data-i18n="helpInfill">底部/顶部厚度、填充密度（%）。</td>
+            </tr>
+            <tr>
+                <td data-i18n="speedTemp">速度 &amp; 温度</td>
+                <td data-i18n="helpSpeedTemp">打印速度、热端温度、热床温度。运行前未显式指定时，作为预热目标。</td>
+            </tr>
+            <tr>
+                <td data-i18n="support">支撑</td>
+                <td data-i18n="helpSupport">支撑类型与平台附着类型，仅用于面板回填，不参与仿真。</td>
+            </tr>
+            <tr>
+                <td data-i18n="material">线材</td>
+                <td data-i18n="helpMaterial">线材直径与流量倍率（对应 M221）。</td>
+            </tr>
+            <tr>
+                <td data-i18n="machine">机器设置</td>
+                <td data-i18n="helpMachine">喷嘴直径、床 X/Y/Z。改变后会即时重建 3D 工作区与裁剪平面。</td>
+            </tr>
+        </table>
+        <h5 data-i18n="helpSec4">四、快捷键</h5>
+        <table>
+            <tr>
+                <td>Space</td>
+                <td data-i18n="helpKeySpace">运行 / 暂停（焦点不在输入框时）。</td>
+            </tr>
+            <tr>
+                <td>Esc</td>
+                <td data-i18n="helpKeyEsc">停止播放。</td>
+            </tr>
+            <tr>
+                <td>Home</td>
+                <td data-i18n="helpKeyHome">执行 G28。</td>
+            </tr>
+            <tr>
+                <td>Ctrl+Enter</td>
+                <td data-i18n="helpKeyTerminal">在终端输入框发送当前指令。</td>
+            </tr>
+        </table>
+        <h5 data-i18n="helpSec5">五、状态栏与固件协议</h5>
+        <table>
+            <tr>
+                <td>X/Y/Z/E</td>
+                <td data-i18n="helpStat1">当前逻辑坐标与累计挤出量。</td>
+            </tr>
+            <tr>
+                <td>Q / Ring</td>
+                <td data-i18n="helpStat2">执行队列长度 / 环形缓冲区占用。</td>
+            </tr>
+            <tr>
+                <td>T / B</td>
+                <td data-i18n="helpStat3">热端 / 热床 当前温度 / 目标温度。</td>
+            </tr>
+            <tr>
+                <td>F</td>
+                <td data-i18n="helpStat4">当前进给速度（mm/min）。</td>
+            </tr>
+            <tr>
+                <td>Spd / Flow</td>
+                <td data-i18n="helpStat5">速度倍率（M220）与流量倍率（M221）。</td>
+            </tr>
+            <tr>
+                <td>Fan</td>
+                <td data-i18n="helpStat6">P0 / P1 / P2 三路风扇 PWM 百分比与估算转速。</td>
+            </tr>
+            <tr>
+                <td>Idle / Paused / Printing</td>
+                <td data-i18n="helpStat7">播放状态。固件协议文本（ok T:、ok X: 等）保持英文以对齐真机。</td>
+            </tr>
+        </table>
         <button class="close-btn" data-i18n="close" onclick="toggleHelp()">关闭</button>
     </div>
 
-    <!-- About Modal -->
     <div id="about-modal" class="modal">
         <h4 data-i18n="aboutTitle">关于本软件</h4>
-        <p><b data-i18n="version">版本：</b>v3.2.6 (Pro)</p>
+        <p><b data-i18n="version">版本：</b>v3.3.0 (Pro)</p>
         <p><b data-i18n="intro">简介：</b><span data-i18n="introText">基于单文件 SPA 纯前端架构的高精度 3D 打印机仿真器。深度模拟 Marlin 固件行为、PID
                 热力学及运动学规划。</span></p>
         <p><b data-i18n="techStack">技术栈：</b>Three.js (3D), Vanilla JS (Logic), SVG Filters (Gooey UI)</p>
-
         <div
             style="max-height: 180px; overflow-y: auto; background: #1a1a1a; padding: 8px; border-radius: 4px; border: 1px solid #444; margin-top: 10px; font-size: 11px; line-height: 1.5; color: #bbb; text-align: left;">
+            <p style="margin: 0 0 4px 0; font-weight: bold; color: #fff;">v3.3.0 更新日志</p>
+            <ul style="margin: 0 0 12px 0; padding-left: 16px;">
+                <li>风扇按标准 Marlin M106/M107 支持 P0/P1/P2 三路；热端风扇增加 EXTRUDER_AUTO_FAN_TEMPERATURE 50°C 门控</li>
+                <li>喷嘴右侧新增 3D 小风扇模型，扇叶随 P0 PWM 旋转</li>
+                <li>G28 与真机一致：Z 抬升 → X/Y/Z 快速归位 + bounce + 二次慢速</li>
+                <li>颜色模式停止或换文件后保留用户上次的手动选择</li>
+                <li>新增 SSE 连接指示灯、G-code 文件拖放、键盘快捷键</li>
+                <li>修复 G-code 编辑器横向溢出无滚动条的问题</li>
+            </ul>
             <p style="margin: 0 0 4px 0; font-weight: bold; color: #fff;">v3.2.6 更新日志</p>
             <ul style="margin: 0 0 12px 0; padding-left: 16px;">
                 <li>修复计算层数时将“纯 E 轴测试挤出”误算为打印层数的问题</li>
                 <li>优化拉丝防断裂效果，强制延长渐隐距离</li>
             </ul>
-            <p style="margin: 0 0 4px 0; font-weight: bold; color: #fff;">v3.2.5 更新日志</p>
-            <ul style="margin: 0 0 12px 0; padding-left: 16px;">
-                <li>重构进度条视觉：纯白密度块置于底层，半透明蓝色进度覆盖</li>
-            </ul>
         </div>
-
         <button class="close-btn" data-i18n="close" onclick="toggleAbout()">关闭</button>
     </div>
 
@@ -1077,12 +1290,19 @@ G1 X20 Y20 E20</textarea>
                 retraction: "回抽 (Retraction)", retractSpeed: "速度 (mm/s)", retractLength: "回抽长度 (mm)",
                 initLayer: "初始层设置", initThick: "初始层厚度 (mm)", initLineWidth: "首层线宽 (%)", sink: "模型下沉 (mm)", dualOverlap: "双喷头叠加量 (mm)",
                 advSpeed: "高级速度", moveSpeed: "移动速度 (mm/s)", bottomSpeed: "底层打印速度", infillSpeed: "内部填充速度", wallSpeed: "外壳打印速度", innerSpeed: "内部打印速度",
-                cooling: "冷却 (Cooling)", minLayerTime: "每层最少时间 (秒)", fan: "使用冷却风扇",
+                cooling: "冷却 (Cooling)", minLayerTime: "每层最少时间 (秒)", fan: "风扇 (Fan)",
+                fanModel: "模型风扇 (P0)", fanHotend: "热端风扇 (P1, 自动)", fanController: "控制器风扇 (P2)",
                 slicePreview: "分层剖切预览 (Clipping)", zHeight: "Z 轴高度", stats: "任务预估 (Estimates)", estTime: "预计耗时:", estFilament: "线材消耗:", estWeight: "预计重量:", estLayers: "总层数:",
                 terminal: "交互式终端 (Terminal)",
                 helpTitle: "帮助与说明", statusParams: "状态栏参数：", helpQ: "队列中等待执行的指令数。", helpRing: "环形缓冲区内的指令数。", helpSpd: "当前速度倍率（可通过 M220 或面板修改）。", helpFlow: "当前挤出流量倍率（可通过 M221 修改）。", helpF: "当前进给速度 (mm/min)。", helpE: "挤出机累计位置。",
                 opsTips: "操作提示：", tip1: "暂停时点击“单步”可逐行执行 G-code。", tip2: "运行时可拖动“分层剖切”滑块查看内部结构。", tip3: "终端控制台支持实时发送如 M114、M503 等查询指令。",
-                aboutTitle: "关于本软件", version: "版本：", intro: "简介：", introText: "基于单文件 SPA 纯前端架构的高精度 3D 打印机仿真器。深度模拟 Marlin 固件行为、PID 热力学及运动学规划。", techStack: "技术栈：", close: "关闭"
+                aboutTitle: "关于本软件", version: "版本：", intro: "简介：", introText: "基于单文件 SPA 纯前端架构的高精度 3D 打印机仿真器。深度模拟 Marlin 固件行为、PID 热力学及运动学规划。", techStack: "技术栈：", close: "关闭",
+                helpSec1: "一、顶部与进度条", helpSseDot: "绿点表示与 Node 后端已连接，红点表示断开。", helpBtnHelp: "打开本帮助弹窗。", helpBtnAbout: "关于本软件与更新日志。", helpBtnLang: "中英双语切换。", helpBtnCollapse: "折叠控制面板（折叠后出现右上悬浮球，可拖拽回显）。", helpProgressBar: "进度条分三层：白色块表示 G-code 执行密度，蓝色为执行进度，黑色竖线是层分割线。",
+                helpSec2: "二、运行控制", helpBtnRun: "开始或暂停播放。运行时会把整份程序同步到 Node 后端，供 Hermes 通过 TCP 查询 M114 得到相同坐标。", helpBtnStop: "停止播放，同时清空后端队列。", helpBtnStep: "暂停时逐段执行。", helpBtnImport: "打开文件选择器导入 .gcode / .gco / .g 文件（也可以直接拖到窗口）。", helpBtnClear: "清空已绘制的 3D 轨迹（编辑器内容保留）。", helpDragDrop: "将 .gcode 文件拖到窗口任意位置即可导入。",
+                helpSec3: "三、面板参数", helpSpeedMult: "0.1x – 2000x。作用于浏览器本地播放与后端虚拟时钟，Hermes 的 TCP 指令跟随同一速度。", helpColorMode: "Z 渐变 / 彩虹 / 单色 / 多色。多色模式下响应 M600 与 T0–T3。停止或换文件后保留上次选择。", helpFan: "P0 模型风扇、P1 热端风扇（≥50°C 强制 100%，auto）、P2 控制器风扇。滑块发 M106 P<n> S<0-255>。", helpSlice: "拖动裁剪平面查看模型内部。下方淡蓝条表示模型总高占床高的比例。", helpStats: "耗时、线材长度（m）、重量（g，密度 1.24g/cm³）、层数。由 G-code 预分析得出。", helpJog: "X± / Y± / Z± 6 个方向，Home 执行完整 G28 序列。", helpTerminal: "直接输入任意 Marlin G-code。M105/M114/M115/M119/M503 会返回查询结果。", helpQuality: "层高、外壳厚度、回抽开关（从 G-code 头注释自动填充）。", helpInfill: "底部/顶部厚度、填充密度（%）。", helpSpeedTemp: "打印速度、热端温度、热床温度。运行前未显式指定时，作为预热目标。", helpSupport: "支撑类型与平台附着类型，仅用于面板回填，不参与仿真。", helpMaterial: "线材直径与流量倍率（对应 M221）。", helpMachine: "喷嘴直径、床 X/Y/Z。改变后会即时重建 3D 工作区与裁剪平面。",
+                helpSec4: "四、快捷键", helpKeySpace: "运行 / 暂停（焦点不在输入框时）。", helpKeyEsc: "停止播放。", helpKeyHome: "执行 G28。", helpKeyTerminal: "在终端输入框发送当前指令。",
+                helpSec5: "五、状态栏与固件协议", helpStat1: "当前逻辑坐标与累计挤出量。", helpStat2: "执行队列长度 / 环形缓冲区占用。", helpStat3: "热端 / 热床 当前温度 / 目标温度。", helpStat4: "当前进给速度（mm/min）。", helpStat5: "速度倍率（M220）与流量倍率（M221）。", helpStat6: "P0 / P1 / P2 三路风扇 PWM 百分比与估算转速。", helpStat7: "播放状态。固件协议文本（ok T:、ok X: 等）保持英文以对齐真机。",
+                toastFileLoaded: "文件读取成功！参数已同步，点击 '运行' 开始仿真。", toastSoftEndstop: "触发软限位", toastM108Skip: "M108: 跳过温度等待", toastPaused: "已暂停，点击继续", toastColdExtrude: "低温挤出已阻止", toastThermalRunaway: "热失控：加热器已禁用", toastEepromSaved: "设置已保存", toastEepromLoaded: "设置已加载", toastEepromDefault: "已恢复出厂设置"
             },
             en: {
                 title: "3D Printer Simulator", run: "Run", pause: "Pause", resume: "Resume", stop: "Stop", import: "Import", clear: "Clear", step: "Step",
@@ -1096,16 +1316,24 @@ G1 X20 Y20 E20</textarea>
                 retraction: "Retraction", retractSpeed: "Speed (mm/s)", retractLength: "Retract Length (mm)",
                 initLayer: "Initial Layer", initThick: "Init Thickness (mm)", initLineWidth: "Init Line Width (%)", sink: "Sink (mm)", dualOverlap: "Dual Overlap (mm)",
                 advSpeed: "Adv. Speed", moveSpeed: "Move Speed (mm/s)", bottomSpeed: "Bottom Speed", infillSpeed: "Infill Speed", wallSpeed: "Wall Speed", innerSpeed: "Inner Speed",
-                cooling: "Cooling", minLayerTime: "Min Layer Time (s)", fan: "Use Cooling Fan",
+                cooling: "Cooling", minLayerTime: "Min Layer Time (s)", fan: "Fan",
+                fanModel: "Model Fan (P0)", fanHotend: "Hotend Fan (P1, auto)", fanController: "Controller Fan (P2)",
                 slicePreview: "Layer Clipping", zHeight: "Z Height", stats: "Estimates", estTime: "Time:", estFilament: "Filament:", estWeight: "Weight:", estLayers: "Layers:",
                 terminal: "Terminal Console",
                 helpTitle: "Help & Info", statusParams: "Status Parameters:", helpQ: "Queued commands.", helpRing: "Commands in ring buffer.", helpSpd: "Speed factor (M220).", helpFlow: "Flow factor (M221).", helpF: "Feedrate (mm/min).", helpE: "Extruder position.",
                 opsTips: "Tips:", tip1: "Click 'Step' while paused to execute line by line.", tip2: "Drag 'Layer Clipping' slider to see internal structure.", tip3: "Terminal supports real-time queries like M114, M503.",
-                aboutTitle: "About", version: "Version:", intro: "Intro:", introText: "High-precision single-file SPA 3D printer simulator. Deeply simulates Marlin firmware, PID thermal dynamics, and kinematics.", techStack: "Tech Stack:", close: "Close"
+                aboutTitle: "About", version: "Version:", intro: "Intro:", introText: "High-precision single-file SPA 3D printer simulator. Deeply simulates Marlin firmware, PID thermal dynamics, and kinematics.", techStack: "Tech Stack:", close: "Close",
+                helpSec1: "1. Top bar & Progress", helpSseDot: "Green dot = SSE connected to Node backend; red = offline.", helpBtnHelp: "Open this help window.", helpBtnAbout: "About and changelog.", helpBtnLang: "Toggle Chinese / English.", helpBtnCollapse: "Collapse the control panel (a floating ball appears; drag it to restore).", helpProgressBar: "Three layers: white = G-code density, blue = progress, dark ticks = layer boundaries.",
+                helpSec2: "2. Run controls", helpBtnRun: "Start or pause. On start, the whole program is mirrored to the Node backend so Hermes can query M114 and get the same coordinates.", helpBtnStop: "Stop playback and clear the backend queue.", helpBtnStep: "Advance one segment while paused.", helpBtnImport: "Pick a .gcode / .gco / .g file (or drag it onto the window).", helpBtnClear: "Clear the rendered 3D path (editor content is kept).", helpDragDrop: "Drop a .gcode file anywhere on the window to import it.",
+                helpSec3: "3. Panel parameters", helpSpeedMult: "0.1x – 2000x. Drives both browser playback and backend virtual clock; Hermes TCP commands follow the same speed.", helpColorMode: "Gradient / Rainbow / Single / Multi. Multi responds to M600 and T0–T3. The selection is preserved across stop and reload.", helpFan: "P0 model fan, P1 hotend fan (>=50C forced 100%, auto), P2 controller fan. Sliders send M106 P<n> S<0-255>.", helpSlice: "Drag the clipping plane to inspect the model. The light-blue bar below shows model height vs. bed height.", helpStats: "Time, filament length (m), weight (g, density 1.24g/cm3), layer count. Derived from G-code pre-analysis.", helpJog: "X+- / Y+- / Z+- six directions; Home runs the full G28 sequence.", helpTerminal: "Send any Marlin G-code. M105/M114/M115/M119/M503 return status lines.", helpQuality: "Layer height, wall thickness, retraction (filled from G-code header comments).", helpInfill: "Top/bottom thickness and infill density (%).", helpSpeedTemp: "Print speed, hotend target, bed target. Used as preheat defaults when not specified in G-code.", helpSupport: "Support type and plate adhesion type. Panel-only, not simulated.", helpMaterial: "Filament diameter and flow multiplier (M221).", helpMachine: "Nozzle size, bed X/Y/Z. Changing these rebuilds the 3D volume and clipping plane.",
+                helpSec4: "4. Keyboard shortcuts", helpKeySpace: "Run / Pause (when focus is not in an input field).", helpKeyEsc: "Stop playback.", helpKeyHome: "Trigger G28.", helpKeyTerminal: "Send the current terminal command.",
+                helpSec5: "5. Status bar & firmware protocol", helpStat1: "Logical coordinates and accumulated E.", helpStat2: "Executor queue length / ring buffer occupancy.", helpStat3: "Hotend / bed current / target temperatures.", helpStat4: "Current feedrate (mm/min).", helpStat5: "Speed factor (M220) and flow factor (M221).", helpStat6: "P0 / P1 / P2 fan PWM percentages and estimated RPM.", helpStat7: "Playback state. Firmware protocol strings (ok T:, ok X:, etc.) are kept in English to match the physical printer.",
+                toastFileLoaded: "File loaded. Parameters synced. Click Run to start.", toastSoftEndstop: "Soft endstop triggered", toastM108Skip: "M108: temperature wait skipped", toastPaused: "Paused. Click Resume to continue.", toastColdExtrude: "Cold extrusion prevented", toastThermalRunaway: "Thermal runaway: heater disabled", toastEepromSaved: "Settings saved to EEPROM", toastEepromLoaded: "Settings loaded from EEPROM", toastEepromDefault: "Factory defaults restored"
             }
         };
         let currentLang = navigator.language.startsWith('zh') ? 'zh' : 'en';
 
+        function t(key) { return (i18n[currentLang] && i18n[currentLang][key]) || key; }
         function updateLanguage() {
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
@@ -1117,16 +1345,8 @@ G1 X20 Y20 E20</textarea>
             if (typeof updateUIState === 'function') updateUIState();
         }
         function toggleLang() { currentLang = currentLang === 'zh' ? 'en' : 'zh'; updateLanguage(); }
-
-        function toggleHelp() {
-            const modal = document.getElementById('help-modal');
-            modal.style.display = modal.style.display === 'block' ? 'none' : 'block';
-        }
-
-        function toggleAbout() {
-            const modal = document.getElementById('about-modal');
-            modal.style.display = modal.style.display === 'block' ? 'none' : 'block';
-        }
+        function toggleHelp() { const modal = document.getElementById('help-modal'); modal.style.display = modal.style.display === 'block' ? 'none' : 'block'; }
+        function toggleAbout() { const modal = document.getElementById('about-modal'); modal.style.display = modal.style.display === 'block' ? 'none' : 'block'; }
 
         // ============================================================
         // 2. Gooey Drag System
@@ -1139,53 +1359,32 @@ G1 X20 Y20 E20</textarea>
         const ballPercentText = document.getElementById('ball-percent');
         const progressCircle = document.getElementById('progress-ring-circle');
 
-        let isDragging = false;
-        let hasDragged = false;
-        let isBroken = false;
-        let pendingDrag = false;
-        let downX = 0, downY = 0;
-        let grabOffsetX = 0, grabOffsetY = 0;
-        let startX, startY;
-
-        let snapLeft = 20;
-        let snapTop = 20;
-
-        const R = 24;
-        const MAX_DRAG = 80;
-        const CLICK_DEADZONE = 5;
+        let isDragging = false, hasDragged = false, isBroken = false, pendingDrag = false;
+        let downX = 0, downY = 0, grabOffsetX = 0, grabOffsetY = 0, startX, startY;
+        let snapLeft = 20, snapTop = 20;
+        const R = 24, MAX_DRAG = 80, CLICK_DEADZONE = 5;
 
         document.getElementById('btn-collapse').addEventListener('click', () => {
             controlPanel.classList.add('collapsed');
-            pendingDrag = false;
-            isDragging = false;
-            hasDragged = false;
+            pendingDrag = false; isDragging = false; hasDragged = false;
             ballHandler.style.transform = `translate(${snapLeft}px, ${snapTop}px)`;
             blobAnchor.style.transform = `translate(${snapLeft}px, ${snapTop}px) scale(1)`;
             blobAnchor.style.display = 'block';
             blobDrag.style.transform = `translate(${snapLeft}px, ${snapTop}px) scale(1)`;
-            ballHandler.classList.remove('spring-anim');
+            ballHandler.classList.remove('spring-anim', 'dragging');
             blobAnchor.classList.remove('spring-anim');
             blobDrag.classList.remove('spring-anim');
-            ballHandler.classList.remove('dragging');
             ballHandler.classList.add('show');
             gooContainer.classList.remove('show');
         });
 
         ballHandler.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return;
-            pendingDrag = true;
-            isDragging = false;
-            hasDragged = false;
-            isBroken = false;
-            downX = e.clientX;
-            downY = e.clientY;
-            grabOffsetX = e.clientX - (snapLeft + R);
-            grabOffsetY = e.clientY - (snapTop + R);
-            startX = snapLeft + R;
-            startY = snapTop + R;
-            blobAnchor.classList.remove('spring-anim');
-            blobDrag.classList.remove('spring-anim');
-            ballHandler.classList.remove('spring-anim');
+            pendingDrag = true; isDragging = false; hasDragged = false; isBroken = false;
+            downX = e.clientX; downY = e.clientY;
+            grabOffsetX = e.clientX - (snapLeft + R); grabOffsetY = e.clientY - (snapTop + R);
+            startX = snapLeft + R; startY = snapTop + R;
+            blobAnchor.classList.remove('spring-anim'); blobDrag.classList.remove('spring-anim'); ballHandler.classList.remove('spring-anim');
             e.preventDefault();
         });
 
@@ -1193,12 +1392,8 @@ G1 X20 Y20 E20</textarea>
             if (!pendingDrag && !isDragging) return;
             if (pendingDrag && !isDragging) {
                 if (Math.hypot(e.clientX - downX, e.clientY - downY) < CLICK_DEADZONE) return;
-                isDragging = true;
-                pendingDrag = false;
-                hasDragged = true;
-                ballHandler.classList.add('dragging');
-                gooContainer.classList.add('show');
-                blobAnchor.style.display = 'block';
+                isDragging = true; pendingDrag = false; hasDragged = true;
+                ballHandler.classList.add('dragging'); gooContainer.classList.add('show'); blobAnchor.style.display = 'block';
             }
             updateDragState(e.clientX, e.clientY);
         });
@@ -1206,25 +1401,20 @@ G1 X20 Y20 E20</textarea>
         window.addEventListener('mouseup', (e) => {
             if (!pendingDrag && !isDragging) return;
             const wasClick = !hasDragged;
-            pendingDrag = false;
-            isDragging = false;
-            ballHandler.classList.remove('dragging');
-            gooContainer.classList.remove('show');
+            pendingDrag = false; isDragging = false;
+            ballHandler.classList.remove('dragging'); gooContainer.classList.remove('show');
             if (wasClick) {
-                controlPanel.classList.remove('collapsed');
-                ballHandler.classList.remove('show');
+                controlPanel.classList.remove('collapsed'); ballHandler.classList.remove('show');
                 controlPanel.classList.toggle('panel-right', snapLeft > window.innerWidth / 2);
                 return;
             }
-            const cx = e.clientX - grabOffsetX;
-            const cy = e.clientY - grabOffsetY;
+            const cx = e.clientX - grabOffsetX, cy = e.clientY - grabOffsetY;
             const windowW = window.innerWidth;
             let targetLeft = (cx < windowW / 2) ? 20 : windowW - R * 2 - 20;
             let targetTop = cy - R;
             if (targetTop < 20) targetTop = 20;
             if (targetTop > window.innerHeight - R * 2 - 20) targetTop = window.innerHeight - R * 2 - 20;
-            snapLeft = targetLeft;
-            snapTop = targetTop;
+            snapLeft = targetLeft; snapTop = targetTop;
             ballHandler.classList.add('spring-anim');
             ballHandler.style.transform = `translate(${targetLeft}px, ${targetTop}px)`;
             setTimeout(() => {
@@ -1234,38 +1424,27 @@ G1 X20 Y20 E20</textarea>
                 }, 150);
             }, 300);
             setTimeout(() => {
-                blobAnchor.style.transition = 'none';
-                blobAnchor.style.transform = `translate(${targetLeft}px, ${targetTop}px) scale(1)`;
-                blobDrag.style.transition = 'none';
-                blobDrag.style.transform = `translate(${targetLeft}px, ${targetTop}px) scale(1)`;
-                blobAnchor.offsetHeight;
-                blobAnchor.style.transition = '';
-                blobDrag.style.transition = '';
+                blobAnchor.style.transition = 'none'; blobAnchor.style.transform = `translate(${targetLeft}px, ${targetTop}px) scale(1)`;
+                blobDrag.style.transition = 'none'; blobDrag.style.transform = `translate(${targetLeft}px, ${targetTop}px) scale(1)`;
+                blobAnchor.offsetHeight; blobAnchor.style.transition = ''; blobDrag.style.transition = '';
             }, 600);
         });
 
         function updateDragState(mouseX, mouseY) {
-            const cx = mouseX - grabOffsetX;
-            const cy = mouseY - grabOffsetY;
-            const dx = cx - startX;
-            const dy = cy - startY;
+            const cx = mouseX - grabOffsetX, cy = mouseY - grabOffsetY;
+            const dx = cx - startX, dy = cy - startY;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist > MAX_DRAG) {
-                blobAnchor.style.transform = `translate(${startX - R}px, ${startY - R}px) scale(0)`;
-                isBroken = true;
+                blobAnchor.style.transform = `translate(${startX - R}px, ${startY - R}px) scale(0)`; isBroken = true;
             } else {
-                if (isBroken) {
-                    blobAnchor.style.display = 'block';
-                    isBroken = false;
-                }
+                if (isBroken) { blobAnchor.style.display = 'block'; isBroken = false; }
                 const ratio = dist / MAX_DRAG;
                 const anchorScale = Math.max(1 - ratio * 1.2, 0);
                 blobAnchor.style.transform = `translate(${startX - R}px, ${startY - R}px) scale(${anchorScale})`;
             }
             const dragR = R * 0.8 - Math.min(dist / MAX_DRAG * 4, 4);
             const dragScale = dragR / R;
-            const left = cx - R;
-            const top = cy - R;
+            const left = cx - R, top = cy - R;
             blobDrag.style.transform = `translate(${left}px, ${top}px) scale(${dragScale})`;
             ballHandler.style.transform = `translate(${left}px, ${top}px)`;
         }
@@ -1315,17 +1494,12 @@ G1 X20 Y20 E20</textarea>
 
         scene.add(new THREE.AmbientLight(0xffffff, 0.8));
         const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.6);
-        dirLight1.position.set(100, 200, 100);
-        scene.add(dirLight1);
+        dirLight1.position.set(100, 200, 100); scene.add(dirLight1);
         const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
-        dirLight2.position.set(-100, 100, -100);
-        scene.add(dirLight2);
+        dirLight2.position.set(-100, 100, -100); scene.add(dirLight2);
 
-        // Visual Clipping Plane (Warm Orange, No Wireframe)
         let slicePlaneGeo = new THREE.PlaneGeometry(BED_WIDTH, BED_DEPTH);
-        const slicePlaneMat = new THREE.MeshBasicMaterial({
-            color: 0xff9800, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false
-        });
+        const slicePlaneMat = new THREE.MeshBasicMaterial({ color: 0xff9800, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false });
         const slicePlaneMesh = new THREE.Mesh(slicePlaneGeo, slicePlaneMat);
         slicePlaneMesh.rotation.x = -Math.PI / 2;
         slicePlaneMesh.position.set(BED_WIDTH / 2, MAX_HEIGHT, BED_DEPTH / 2);
@@ -1397,13 +1571,9 @@ G1 X20 Y20 E20</textarea>
         const bedMesh = new THREE.Mesh(bedGeo, bedMat); bedMesh.rotation.x = -Math.PI / 2; bedMesh.position.set(BED_WIDTH / 2, -0.2, BED_DEPTH / 2); scene.add(bedMesh);
 
         // ============================================================
-        // 4. Nozzle & Path
+        // 4. Model & Path Rendering
         // ============================================================
-        const nozzleGroup = new THREE.Group();
-        const nozzleMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.3, metalness: 0.7 });
-        const blockGeo = new THREE.CylinderGeometry(3, 3, 10, 6); const blockMesh = new THREE.Mesh(blockGeo, nozzleMat); blockMesh.position.y = 10; nozzleGroup.add(blockMesh);
-        const tipGeo = new THREE.CylinderGeometry(3, 0.4, 5, 6); const tipMesh = new THREE.Mesh(tipGeo, nozzleMat); tipMesh.position.y = 2.5; nozzleGroup.add(tipMesh);
-        scene.add(nozzleGroup);
+        scene.add(PrinterModel.group);
 
         const MAX_SEGMENTS = 1000000;
         const segmentPositions = new Float32Array(MAX_SEGMENTS * 6);
@@ -1571,30 +1741,27 @@ G1 X20 Y20 E20</textarea>
         const speedMultSelect = document.getElementById('speed-mult');
 
         let currentSpeedMult = 1.0;
-        function updateSpeed() { currentSpeedMult = parseFloat(speedMultSelect.value); }
+        function updateSpeed() {
+            currentSpeedMult = parseFloat(speedMultSelect.value);
+            postBackendControl('speed', { value: currentSpeedMult });
+        }
 
         const AMBIENT_TEMP = 20;
         const COLD_EXTRUDE_MIN = 170;
         const LEAK_TEMP_MIN = 180;
         const FILAMENT_DENSITY = 1.24;
+        const MAX_FAN_RPM = 12000;
+
+        let fanP0 = 0, fanP1 = 0, fanP2 = 0, fanSpeed = 0;
 
         const firmwareSettings = {
             maxFeedrate: { x: 300, y: 300, z: 10, e: 50 },
             maxAccel: { x: 3000, y: 3000, z: 200, e: 10000 },
-            printAccel: 3000,
-            moveAccel: 3000,
-            retractAccel: 3000,
+            printAccel: 3000, moveAccel: 3000, retractAccel: 3000,
             maxJerk: { x: 8, y: 8, z: 0.4, e: 5 },
-            junctionDeviation: 0.013,
-            speedFactor: 1.0,
-            flowFactor: 1.0,
-            softEndstops: true,
-            filamentDia: 1.75,
-            retractLength: 4.5,
-            retractSpeed: 40,
-            coldExtrudeAllow: false,
-            stepsPerMM: { x: 80, y: 80, z: 400, e: 93 },
-            probeOffsetZ: 0
+            junctionDeviation: 0.013, speedFactor: 1.0, flowFactor: 1.0,
+            softEndstops: true, filamentDia: 1.75, retractLength: 4.5, retractSpeed: 40,
+            coldExtrudeAllow: false, stepsPerMM: { x: 80, y: 80, z: 400, e: 93 }, probeOffsetZ: 0
         };
         const firmwareDefaults = JSON.parse(JSON.stringify(firmwareSettings));
         let eepromBackup = null;
@@ -1603,8 +1770,7 @@ G1 X20 Y20 E20</textarea>
         const plannerPos = { x: 0, y: 0, z: 0 };
 
         const RING_SIZE = 16;
-        let stepQueue = [];
-        let activeRing = [];
+        let stepQueue = [], activeRing = [];
 
         function refillRing() {
             while (activeRing.length < RING_SIZE && stepQueue.length > 0) {
@@ -1621,55 +1787,40 @@ G1 X20 Y20 E20</textarea>
         let targetHotend = 0, currentHotend = AMBIENT_TEMP;
         let targetBed = 0, currentBed = AMBIENT_TEMP;
 
-        let fanSpeed = 0;
         let steppersEnabled = true;
 
-        let hotendStableTime = 0;
-        let bedStableTime = 0;
-        let runawayTimer = 0;
+        let hotendStableTime = 0, bedStableTime = 0, runawayTimer = 0;
         let thermalRunaway = false;
         let warnFlags = { coldExtrude: false, softLimit: false };
 
-        let activeStep = null;
-        let lastLineNum = 0;
-        let stepFrom = { x: 0, y: 0, z: 0, e: 0 };
-        let stepTo = { x: 0, y: 0, z: 0, e: 0 };
-        let baseDuration = 0;
-        let stepElapsed = 0;
-        let lastFrameTime = 0;
+        let activeStep = null, lastLineNum = 0;
+        let stepFrom = { x: 0, y: 0, z: 0, e: 0 }, stepTo = { x: 0, y: 0, z: 0, e: 0 };
+        let baseDuration = 0, stepElapsed = 0, lastFrameTime = 0, lastAnimateTime = 0;
 
-        let totalSteps = 0;
-        let currentLine = 0;
-        let lastMoveDir = null;
-
-        let estTimeMs = 0;
-        let estFilamentMm = 0;
+        let totalSteps = 0, currentLine = 0, lastMoveDir = null;
+        let estTimeMs = 0, estFilamentMm = 0;
         let estLayers = new Set();
         let progressDensity = new Array(100).fill(0);
         let layerMarkPercentages = [];
         let m108Flag = false;
 
-        let lastUIUpdateTime = 0;
-        let lastLockState = null;
+        let lastUIUpdateTime = 0, lastLockState = null;
         const detailElements = document.querySelectorAll('details');
 
-        // Editor elements
+        let backendIdleState = null;
+
         const textarea = document.getElementById('gcode-input');
         const lineNumbers = document.getElementById('line-numbers');
         const lineHighlight = document.getElementById('line-highlight');
         const LINE_HEIGHT = 15.4;
 
-        // Cached guard values to skip redundant DOM writes.
-        let lastLineNumberCount = -1;
-        let lastHighlightLine = -1;
-        let lastHighlightScrollTop = -1;
-        let lastSliceFillPct = -1;
-        let lastSliceText = "";
+        let lastLineNumberCount = -1, lastHighlightLine = -1, lastHighlightScrollTop = -1;
+        let lastSliceFillPct = -1, lastSliceText = "";
 
         function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
         function updateNozzleTransform() {
-            nozzleGroup.position.set(currentPos.x, currentPos.z, currentPos.y);
+            PrinterModel.updateTransform(currentPos.x, currentPos.y, currentPos.z);
         }
 
         function updateLineNumbers() {
@@ -1695,26 +1846,26 @@ G1 X20 Y20 E20</textarea>
             out.scrollTop = out.scrollHeight;
         }
 
+        function clearTerminal() {
+            const out = document.getElementById('terminal-output');
+            out.innerHTML = '';
+        }
+
         function updateLineHighlight() {
             if (isStopped) {
                 lineHighlight.style.display = 'none';
-                lastHighlightLine = -1;
-                lastHighlightScrollTop = -1;
+                lastHighlightLine = -1; lastHighlightScrollTop = -1;
                 return;
             }
-
             let targetLine = 0;
             if (activeStep && activeStep.lineNum > 0) targetLine = activeStep.lineNum;
             else if (lastLineNum > 0) targetLine = lastLineNum;
 
             if (targetLine <= 0) {
                 lineHighlight.style.display = 'none';
-                lastHighlightLine = -1;
-                lastHighlightScrollTop = -1;
+                lastHighlightLine = -1; lastHighlightScrollTop = -1;
                 return;
             }
-
-            // Auto-scroll only when the line number changes
             if (targetLine !== lastHighlightLine) {
                 const top = (targetLine - 1) * LINE_HEIGHT;
                 const viewTop = textarea.scrollTop;
@@ -1724,10 +1875,8 @@ G1 X20 Y20 E20</textarea>
                     lineNumbers.scrollTop = textarea.scrollTop;
                 }
             }
-
             const curScrollTop = textarea.scrollTop;
             if (targetLine === lastHighlightLine && curScrollTop === lastHighlightScrollTop) return;
-
             lineHighlight.style.display = 'block';
             lineHighlight.style.top = `${6 + (targetLine - 1) * LINE_HEIGHT - curScrollTop}px`;
             lastHighlightLine = targetLine;
@@ -1738,14 +1887,11 @@ G1 X20 Y20 E20</textarea>
             const totalMins = Math.floor(estTimeMs / 60000);
             const totalSecs = Math.floor((estTimeMs % 60000) / 1000);
             document.getElementById('stat-time').innerText = `${totalMins}m ${totalSecs}s`;
-
             const meters = estFilamentMm / 1000;
             document.getElementById('stat-filament').innerText = `${meters.toFixed(2)}m`;
-
             const volCm3 = (Math.PI * Math.pow(firmwareSettings.filamentDia / 2, 2) * estFilamentMm) / 1000;
             const weight = volCm3 * FILAMENT_DENSITY;
             document.getElementById('stat-weight').innerText = `${weight.toFixed(1)}g`;
-
             document.getElementById('stat-layers').innerText = estLayers.size;
             updateSliceMarks();
             updateSliceModelFill();
@@ -1754,8 +1900,6 @@ G1 X20 Y20 E20</textarea>
         function updateSliceMarks() {
             const marksDiv = document.getElementById('model-layer-marks');
             marksDiv.innerHTML = '';
-
-            // Draw white blocks for instruction density
             for (let i = 0; i < 100; i++) {
                 if (progressDensity[i] > 0) {
                     const block = document.createElement('div');
@@ -1765,8 +1909,6 @@ G1 X20 Y20 E20</textarea>
                     marksDiv.appendChild(block);
                 }
             }
-
-            // Draw layer marks
             layerMarkPercentages.forEach(pct => {
                 const tick = document.createElement('div');
                 tick.className = 'layer-tick';
@@ -1784,7 +1926,6 @@ G1 X20 Y20 E20</textarea>
             if (rounded === lastSliceFillPct) return;
             lastSliceFillPct = rounded;
             fill.style.width = rounded + '%';
-
             const z = parseFloat(sliceSlider.value) || 0;
             const text = `Z: ${z.toFixed(1)} / ${MAX_HEIGHT.toFixed(1)} (模型: ${maxModelZ.toFixed(1)}mm)`;
             if (text !== lastSliceText) {
@@ -1811,7 +1952,7 @@ G1 X20 Y20 E20</textarea>
 
             if (running !== lastLockState) {
                 detailElements.forEach(d => {
-                    if (d.id !== 'terminal-details' && d.id !== 'slice-details' && d.id !== 'stats-details') {
+                    if (d.id !== 'terminal-details' && d.id !== 'slice-details' && d.id !== 'stats-details' && d.id !== 'fan-details') {
                         d.classList.toggle('disabled-panel', running);
                     }
                 });
@@ -1839,14 +1980,11 @@ G1 X20 Y20 E20</textarea>
             updateLineHighlight();
             updateSliceModelFill();
 
-            // Enhanced Dashboard Status
             const totalLines = lastLineNumberCount > 0 ? lastLineNumberCount : 1;
             const curLine = lastLineNum || 0;
             const totalEst = estTimeMs / 1000;
             let elapsed = 0;
-            if (jobStartTime > 0 && !isStopped) {
-                elapsed = (performance.now() - jobStartTime) / 1000;
-            }
+            if (jobStartTime > 0 && !isStopped) elapsed = (performance.now() - jobStartTime) / 1000;
             const eta = Math.max(0, totalEst - elapsed);
             const fmtTime = (s) => `${Math.floor(s / 60)}m ${Math.floor(s % 60)}s`;
 
@@ -1855,12 +1993,24 @@ G1 X20 Y20 E20</textarea>
             statusStr += `Line: ${curLine}/${totalLines} | T:${currentHotend.toFixed(0)}/${targetHotend.toFixed(0)} B:${currentBed.toFixed(0)}/${targetBed.toFixed(0)}\n`;
             statusStr += `Time: ${fmtTime(elapsed)} / ${fmtTime(totalEst)} (ETA: ${fmtTime(eta)})\n`;
             statusStr += `Q:${queued} | Ring:${activeRing.length}/${RING_SIZE} | F:${gcodeState.feedrate} | ${progress.toFixed(1)}%\n`;
-            statusStr += `Spd:${(firmwareSettings.speedFactor * 100).toFixed(0)}% Flow:${(firmwareSettings.flowFactor * 100).toFixed(0)}% Fan:${(fanSpeed * 100).toFixed(0)}%\n`;
+            statusStr += `Spd:${(firmwareSettings.speedFactor * 100).toFixed(0)}% Flow:${(firmwareSettings.flowFactor * 100).toFixed(0)}%\n`;
+            statusStr += `Fan: P0 ${(fanP0 * 100).toFixed(0)}% (${Math.round(fanP0 * MAX_FAN_RPM)} RPM) | P1 ${(fanP1 * 100).toFixed(0)}% (${Math.round(fanP1 * MAX_FAN_RPM)} RPM) | P2 ${(fanP2 * 100).toFixed(0)}% (${Math.round(fanP2 * MAX_FAN_RPM)} RPM)\n`;
             statusStr += stateStr;
 
-            if (statusEl.innerText !== statusStr) {
-                statusEl.innerText = statusStr;
-            }
+            if (statusEl.innerText !== statusStr) statusEl.innerText = statusStr;
+
+            const fanP0Slider = document.getElementById('fan-p0');
+            const fanP2Slider = document.getElementById('fan-p2');
+            if (fanP0Slider && document.activeElement !== fanP0Slider) fanP0Slider.value = Math.round(fanP0 * 255);
+            if (fanP2Slider && document.activeElement !== fanP2Slider) fanP2Slider.value = Math.round(fanP2 * 255);
+            const fanP0Val = document.getElementById('fan-p0-val');
+            const fanP1Val = document.getElementById('fan-p1-val');
+            const fanP2Val = document.getElementById('fan-p2-val');
+            if (fanP0Val) fanP0Val.innerText = `${Math.round(fanP0 * 100)}% (${Math.round(fanP0 * MAX_FAN_RPM)} RPM)`;
+            if (fanP1Val) fanP1Val.innerText = `${Math.round(fanP1 * 100)}% (${Math.round(fanP1 * MAX_FAN_RPM)} RPM)`;
+            if (fanP2Val) fanP2Val.innerText = `${Math.round(fanP2 * 100)}% (${Math.round(fanP2 * MAX_FAN_RPM)} RPM)`;
+            const fanP1Slider = document.getElementById('fan-p1');
+            if (fanP1Slider) fanP1Slider.value = Math.round(fanP1 * 255);
         }
 
         function clearPath() {
@@ -1883,12 +2033,10 @@ G1 X20 Y20 E20</textarea>
                 if (Math.abs(dvec.y) > 1e-6) speed = Math.min(speed, mf.y * distance / Math.abs(dvec.y));
                 if (Math.abs(dvec.z) > 1e-6) speed = Math.min(speed, mf.z * distance / Math.abs(dvec.z));
             }
-
             const accel = Math.max(10, isExtruding ? firmwareSettings.printAccel : firmwareSettings.moveAccel);
             const vJunction = Math.sqrt(accel * firmwareSettings.junctionDeviation);
             speed = Math.min(speed, vJunction);
             speed = Math.min(speed, Math.sqrt(accel * distance));
-
             if (speed <= 0.001) return 5000;
             return Math.max(1, (distance / speed) * 1000 + (speed / accel) * 1000);
         }
@@ -1901,7 +2049,7 @@ G1 X20 Y20 E20</textarea>
         }
 
         // ============================================================
-        // 7. G-code Parsing
+        // 7. G-code Parsing & Planning
         // ============================================================
         function parseGCodeLine(line, lineNum) {
             let cleanLine = line.replace(/\([^)]*\)/g, '');
@@ -1961,7 +2109,7 @@ G1 X20 Y20 E20</textarea>
                 if (cX !== target.x || cY !== target.y || cZ !== target.z) {
                     if (!warnFlags.softLimit) {
                         warnFlags.softLimit = true;
-                        if (typeof window.showToast === 'function') window.showToast('Soft endstop triggered', 'warning', 4000);
+                        if (typeof window.showToast === 'function') window.showToast(t('toastSoftEndstop'), 'warning', 4000);
                     }
                     target.x = cX; target.y = cY; target.z = cZ;
                 }
@@ -1975,14 +2123,9 @@ G1 X20 Y20 E20</textarea>
             gcodeState.e = eInfo.target;
             plannerPos.x = target.x; plannerPos.y = target.y; plannerPos.z = target.z;
 
-            const dx = target.x - from.x;
-            const dy = target.y - from.y;
-            const dz = target.z - from.z;
+            const dx = target.x - from.x, dy = target.y - from.y, dz = target.z - from.z;
             const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-            if (dist <= 1e-6 && eInfo.delta === 0) {
-                return;
-            }
+            if (dist <= 1e-6 && eInfo.delta === 0) return;
 
             let junctionFactor = 1.0;
             if (dist > 0.001 && lastMoveDir) {
@@ -1993,7 +2136,6 @@ G1 X20 Y20 E20</textarea>
             if (dist > 0.001) lastMoveDir = { x: dx / dist, y: dy / dist, z: dz / dist };
 
             const effFeed = gcodeState.feedrate * junctionFactor;
-
             const duration = (dist <= 1e-6 && eInfo.delta !== 0)
                 ? (Math.abs(eInfo.delta) / (gcodeState.feedrate / 60)) * 1000
                 : computeDuration(dist, effFeed, { x: dx, y: dy, z: dz }, extruding);
@@ -2007,11 +2149,7 @@ G1 X20 Y20 E20</textarea>
                 }
             }
 
-            stepQueue.push({
-                from, target, targetE: eInfo.target,
-                extruding, retracting, duration,
-                ...meta
-            });
+            stepQueue.push({ from, target, targetE: eInfo.target, extruding, retracting, duration, ...meta });
         }
 
         function planArc(words, clockwise, meta) {
@@ -2117,47 +2255,43 @@ G1 X20 Y20 E20</textarea>
             const doX = words.X !== undefined || noWords;
             const doY = words.Y !== undefined || noWords;
             const doZ = words.Z !== undefined || noWords;
-            let feed = words.F !== undefined ? words.F : 3000;
 
-            if (doZ && doX && doY) {
-                stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: 10 }, targetE: gcodeState.e, extruding: false, duration: 500, ...meta });
-                plannerPos.z = 10;
-            }
+            const s = { homeFeedrate: { x: 80, y: 80, z: 8 }, homeSlowFeedrate: { x: 25, y: 25, z: 4 }, homeBounce: 5, homeZLift: 5 };
+            const currentE = gcodeState.e;
+            const steps = [];
 
+            const liftZ = Math.max(plannerPos.z + s.homeZLift, s.homeZLift);
+            if (doZ && plannerPos.z < liftZ) steps.push({ dx: null, dy: null, dz: liftZ, feed: 10 * 60 });
             if (doX) {
-                const dist = Math.abs(plannerPos.x);
-                stepQueue.push({ target: { x: 0, y: plannerPos.y, z: plannerPos.z }, targetE: gcodeState.e, extruding: false, duration: Math.max(60, dist / (feed / 60) * 1000), ...meta });
-                plannerPos.x = 0;
+                steps.push({ dx: 0, dy: null, dz: null, feed: s.homeFeedrate.x * 60 });
+                steps.push({ dx: s.homeBounce, dy: null, dz: null, feed: s.homeFeedrate.x * 60 });
+                steps.push({ dx: 0, dy: null, dz: null, feed: s.homeSlowFeedrate.x * 60 });
             }
             if (doY) {
-                const dist = Math.abs(plannerPos.y);
-                stepQueue.push({ target: { x: plannerPos.x, y: 0, z: plannerPos.z }, targetE: gcodeState.e, extruding: false, duration: Math.max(60, dist / (feed / 60) * 1000), ...meta });
-                plannerPos.y = 0;
+                steps.push({ dx: null, dy: 0, dz: null, feed: s.homeFeedrate.y * 60 });
+                steps.push({ dx: null, dy: s.homeBounce, dz: null, feed: s.homeFeedrate.y * 60 });
+                steps.push({ dx: null, dy: 0, dz: null, feed: s.homeSlowFeedrate.y * 60 });
             }
             if (doZ) {
-                const dist = Math.abs(plannerPos.z);
-                stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: 0 }, targetE: gcodeState.e, extruding: false, duration: Math.max(120, dist / 40 * 1000), ...meta });
-                plannerPos.z = 0;
+                steps.push({ dx: null, dy: null, dz: 0, feed: s.homeFeedrate.z * 60 });
+                steps.push({ dx: null, dy: null, dz: 2, feed: s.homeFeedrate.z * 60 });
+                steps.push({ dx: null, dy: null, dz: 0, feed: s.homeSlowFeedrate.z * 60 });
             }
 
-            if (doX) {
-                stepQueue.push({ target: { x: 3, y: plannerPos.y, z: plannerPos.z }, targetE: gcodeState.e, extruding: false, duration: 120, ...meta });
-                plannerPos.x = 3;
-                stepQueue.push({ target: { x: 0, y: plannerPos.y, z: plannerPos.z }, targetE: gcodeState.e, extruding: false, duration: 400, ...meta });
-                plannerPos.x = 0;
+            for (let i = 0; i < steps.length; i++) {
+                const from = { x: plannerPos.x, y: plannerPos.y, z: plannerPos.z };
+                const to = { x: from.x, y: from.y, z: from.z };
+                if (steps[i].dx !== null) to.x = steps[i].dx;
+                if (steps[i].dy !== null) to.y = steps[i].dy;
+                if (steps[i].dz !== null) to.z = steps[i].dz;
+                const dx = to.x - from.x, dy = to.y - from.y, dz = to.z - from.z;
+                const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                const dur = computeDuration(dist, steps[i].feed, { x: dx, y: dy, z: dz }, false);
+                stepQueue.push({ from: from, target: to, targetE: currentE, extruding: false, duration: dur, ...meta });
+                plannerPos.x = to.x; plannerPos.y = to.y; plannerPos.z = to.z;
+                estTimeMs += dur;
             }
-            if (doY) {
-                stepQueue.push({ target: { x: plannerPos.x, y: 3, z: plannerPos.z }, targetE: gcodeState.e, extruding: false, duration: 120, ...meta });
-                plannerPos.y = 3;
-                stepQueue.push({ target: { x: plannerPos.x, y: 0, z: plannerPos.z }, targetE: gcodeState.e, extruding: false, duration: 400, ...meta });
-                plannerPos.y = 0;
-            }
-            if (doZ) {
-                stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: 2 }, targetE: gcodeState.e, extruding: false, duration: 200, ...meta });
-                plannerPos.z = 2;
-                stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: 0 }, targetE: gcodeState.e, extruding: false, duration: 500, ...meta });
-                plannerPos.z = 0;
-            }
+            gcodeState.e = 0;
             lastMoveDir = null;
         }
 
@@ -2208,17 +2342,9 @@ G1 X20 Y20 E20</textarea>
                     const resetZ = words.Z !== undefined ? words.Z * gcodeState.unitScale : plannerPos.z;
                     const resetE = words.E !== undefined ? words.E * gcodeState.unitScale : gcodeState.e;
 
-                    stepQueue.push({
-                        type: 'coord_reset',
-                        pos: { x: resetX, y: resetY, z: resetZ },
-                        targetE: resetE,
-                        duration: 1,
-                        ...meta
-                    });
+                    stepQueue.push({ type: 'coord_reset', pos: { x: resetX, y: resetY, z: resetZ }, targetE: resetE, duration: 1, ...meta });
 
-                    plannerPos.x = resetX;
-                    plannerPos.y = resetY;
-                    plannerPos.z = resetZ;
+                    plannerPos.x = resetX; plannerPos.y = resetY; plannerPos.z = resetZ;
                     gcodeState.e = resetE;
                     break;
                 }
@@ -2252,12 +2378,25 @@ G1 X20 Y20 E20</textarea>
                         stepQueue.push({ type: 'set_temp', target: Math.max(isPreprocessing ? preBed : currentBed, words.R), isBed: true, wait: true, duration: 1, ...meta });
                     }
                     break;
-                case 'M106':
-                    fanSpeed = (words.S !== undefined) ? Math.max(0, Math.min(1, words.S / 255)) : 1;
+                case 'M106': {
+                    const p = words.P !== undefined ? Math.round(words.P) : 0;
+                    const s = words.S !== undefined ? Math.max(0, Math.min(1, words.S / 255)) : 1;
+                    if (!isPreprocessing) {
+                        if (p === 0) { fanP0 = s; fanSpeed = fanP0; }
+                        else if (p === 1) { /* auto, ignored */ }
+                        else if (p === 2) { fanP2 = s; }
+                    }
                     break;
-                case 'M107':
-                    fanSpeed = 0;
+                }
+                case 'M107': {
+                    const p = words.P !== undefined ? Math.round(words.P) : 0;
+                    if (!isPreprocessing) {
+                        if (p === 0) { fanP0 = 0; fanSpeed = 0; }
+                        else if (p === 1) { /* auto, ignored */ }
+                        else if (p === 2) { fanP2 = 0; }
+                    }
                     break;
+                }
                 case 'M84': case 'M18': steppersEnabled = false; break;
                 case 'M17': steppersEnabled = true; break;
                 case 'M108':
@@ -2299,8 +2438,10 @@ G1 X20 Y20 E20</textarea>
                 case 'M163':
                     if (words.S !== undefined && words.P !== undefined) {
                         mixColors[words.S] = words.P;
-                        currentColorMode = 'multi';
-                        document.getElementById('color-mode').value = 'multi';
+                        if (!isPreprocessing) {
+                            currentColorMode = 'multi';
+                            document.getElementById('color-mode').value = 'multi';
+                        }
                     }
                     break;
                 case 'M600': {
@@ -2313,16 +2454,20 @@ G1 X20 Y20 E20</textarea>
                     stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: plannerPos.z + raiseZ }, targetE: tempE, extruding: false, duration: 1000, ...meta });
                     stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: plannerPos.z }, targetE: tempE, extruding: false, duration: 1000, ...meta });
                     currentMultiColorIndex++;
-                    currentColorMode = 'multi';
-                    document.getElementById('color-mode').value = 'multi';
+                    if (!isPreprocessing) {
+                        currentColorMode = 'multi';
+                        document.getElementById('color-mode').value = 'multi';
+                    }
                     break;
                 }
                 case 'T0': case 'T1': case 'T2': case 'T3': {
                     const toolIdx = parseInt(command.substring(1));
                     if (!isNaN(toolIdx)) {
                         currentMultiColorIndex = toolIdx;
-                        currentColorMode = 'multi';
-                        document.getElementById('color-mode').value = 'multi';
+                        if (!isPreprocessing) {
+                            currentColorMode = 'multi';
+                            document.getElementById('color-mode').value = 'multi';
+                        }
                     }
                     break;
                 }
@@ -2368,21 +2513,21 @@ G1 X20 Y20 E20</textarea>
                 case 'M500':
                     if (!isPreprocessing) {
                         eepromBackup = JSON.parse(JSON.stringify(firmwareSettings));
-                        if (typeof window.showToast === 'function') window.showToast('Settings saved to EEPROM', 'success', 2000);
+                        if (typeof window.showToast === 'function') window.showToast(t('toastEepromSaved'), 'success', 2000);
                     }
                     break;
                 case 'M501':
                     if (eepromBackup) {
                         const loaded = JSON.parse(JSON.stringify(eepromBackup));
                         Object.keys(loaded).forEach(k => { firmwareSettings[k] = loaded[k]; });
-                        if (typeof window.showToast === 'function') window.showToast('Settings loaded from EEPROM', 'info', 2000);
+                        if (typeof window.showToast === 'function') window.showToast(t('toastEepromLoaded'), 'info', 2000);
                     }
                     break;
                 case 'M502':
                     Object.keys(firmwareDefaults).forEach(k => {
                         firmwareSettings[k] = JSON.parse(JSON.stringify(firmwareDefaults[k]));
                     });
-                    if (typeof window.showToast === 'function') window.showToast('Factory defaults restored', 'info', 2000);
+                    if (typeof window.showToast === 'function') window.showToast(t('toastEepromDefault'), 'info', 2000);
                     break;
                 case 'M92':
                     if (words.X !== undefined) firmwareSettings.stepsPerMM.x = words.X;
@@ -2446,41 +2591,26 @@ G1 X20 Y20 E20</textarea>
 
         function saveFullState() {
             return {
-                pos: { ...plannerPos },
-                e: gcodeState.e,
-                feedrate: gcodeState.feedrate,
-                absPos: gcodeState.absolutePosition,
-                absExt: gcodeState.absoluteExtrusion,
-                absArc: gcodeState.absoluteArcCenter,
-                unit: gcodeState.unitScale,
-                fan: fanSpeed,
-                steppers: steppersEnabled,
-                multiColor: currentMultiColorIndex,
-                colorMode: currentColorMode,
-                mixColors: [...mixColors],
-                lastMoveDir: lastMoveDir ? { ...lastMoveDir } : null,
-                warnFlags: { ...warnFlags },
-                firmware: JSON.parse(JSON.stringify(firmwareSettings))
+                pos: { ...plannerPos }, e: gcodeState.e, feedrate: gcodeState.feedrate,
+                absPos: gcodeState.absolutePosition, absExt: gcodeState.absoluteExtrusion,
+                absArc: gcodeState.absoluteArcCenter, unit: gcodeState.unitScale,
+                fanP0: fanP0, fanP2: fanP2, steppers: steppersEnabled,
+                multiColor: currentMultiColorIndex, colorMode: currentColorMode,
+                mixColors: [...mixColors], lastMoveDir: lastMoveDir ? { ...lastMoveDir } : null,
+                warnFlags: { ...warnFlags }, firmware: JSON.parse(JSON.stringify(firmwareSettings))
             };
         }
 
         function restoreFullState(state) {
             plannerPos.x = state.pos.x; plannerPos.y = state.pos.y; plannerPos.z = state.pos.z;
-            gcodeState.e = state.e;
-            gcodeState.feedrate = state.feedrate;
-            gcodeState.absolutePosition = state.absPos;
-            gcodeState.absoluteExtrusion = state.absExt;
-            gcodeState.absoluteArcCenter = state.absArc;
-            gcodeState.unitScale = state.unit;
-            fanSpeed = state.fan;
-            steppersEnabled = state.steppers;
-            currentMultiColorIndex = state.multiColor;
-            currentColorMode = state.colorMode;
+            gcodeState.e = state.e; gcodeState.feedrate = state.feedrate;
+            gcodeState.absolutePosition = state.absPos; gcodeState.absoluteExtrusion = state.absExt;
+            gcodeState.absoluteArcCenter = state.absArc; gcodeState.unitScale = state.unit;
+            fanP0 = state.fanP0; fanP2 = state.fanP2; fanSpeed = fanP0; steppersEnabled = state.steppers;
+            currentMultiColorIndex = state.multiColor; currentColorMode = state.colorMode;
             document.getElementById('color-mode').value = currentColorMode;
-            mixColors = [...state.mixColors];
-            lastMoveDir = state.lastMoveDir ? { ...state.lastMoveDir } : null;
-            warnFlags = { ...state.warnFlags };
-            Object.assign(firmwareSettings, state.firmware);
+            mixColors = [...state.mixColors]; lastMoveDir = state.lastMoveDir ? { ...state.lastMoveDir } : null;
+            warnFlags = { ...state.warnFlags }; Object.assign(firmwareSettings, state.firmware);
         }
 
         let isPreprocessing = false;
@@ -2489,15 +2619,12 @@ G1 X20 Y20 E20</textarea>
             isPreprocessing = true;
             updateLineNumbers();
             const lines = text.split('\n');
-            let lastHotend = -1, lastBed = -1;
-            let layerHeight = 0, wallThick = 0, fill = 0;
+            let lastHotend = -1, lastBed = -1, layerHeight = 0, wallThick = 0, fill = 0;
 
             for (let i = 0; i < lines.length; i++) {
                 const originalLine = lines[i].trim();
                 const upperLine = originalLine.toUpperCase();
-
                 if (upperLine.includes(';END GCODE') || upperLine.includes(';END_GCODE')) break;
-
                 if (upperLine.includes('BASIC SETTINGS:')) {
                     const hMatch = upperLine.match(/LAYER HEIGHT:\s*([0-9.]+)/);
                     const wMatch = upperLine.match(/WALLS:\s*([0-9.]+)/);
@@ -2506,14 +2633,12 @@ G1 X20 Y20 E20</textarea>
                     if (wMatch) wallThick = parseFloat(wMatch[1]);
                     if (fMatch) fill = parseFloat(fMatch[1]);
                 }
-
                 let hm = originalLine.match(/LAYER[_ ]HEIGHT\s*[:=]\s*([0-9.]+)/i);
                 if (hm) layerHeight = parseFloat(hm[1]);
                 let wm = originalLine.match(/(?:WALLS|WALL[_ ]THICKNESS|PERIMETERS)\s*[:=]\s*([0-9.]+)/i);
                 if (wm) wallThick = parseFloat(wm[1]);
                 let fm = originalLine.match(/(?:FILL|INFILL[_ ]DENSITY|INFILL)\s*[:=]\s*([0-9.]+)/i);
                 if (fm) fill = parseFloat(fm[1]);
-
                 let tm = originalLine.match(/FIRST[_ ]LAYER[_ ]TEMPERATURE\s*[:=]\s*(\d+)/i);
                 if (tm) lastHotend = Math.round(parseFloat(tm[1]));
                 let bm = originalLine.match(/FIRST[_ ]LAYER[_ ]BED[_ ]TEMPERATURE\s*[:=]\s*(\d+)/i);
@@ -2521,16 +2646,9 @@ G1 X20 Y20 E20</textarea>
 
                 const parsed = parseGCodeLine(originalLine, i + 1);
                 if (!parsed) continue;
-
-                const cmd = parsed.command;
-                const words = parsed.words;
-
-                if (cmd === 'M104' || cmd === 'M109') {
-                    if (words.S !== undefined && words.S > 0) lastHotend = Math.round(words.S);
-                }
-                if (cmd === 'M140' || cmd === 'M190') {
-                    if (words.S !== undefined && words.S > 0) lastBed = Math.round(words.S);
-                }
+                const cmd = parsed.command, words = parsed.words;
+                if (cmd === 'M104' || cmd === 'M109') { if (words.S !== undefined && words.S > 0) lastHotend = Math.round(words.S); }
+                if (cmd === 'M140' || cmd === 'M190') { if (words.S !== undefined && words.S > 0) lastBed = Math.round(words.S); }
             }
 
             if (lastHotend > -1) document.getElementById('printTemp').value = lastHotend;
@@ -2541,19 +2659,11 @@ G1 X20 Y20 E20</textarea>
 
             estTimeMs = 0; estFilamentMm = 0; estLayers.clear(); maxModelZ = 0;
             layerMarkPercentages = [];
-
             const savedState = saveFullState();
-
             plannerPos.x = 0; plannerPos.y = 0; plannerPos.z = 0;
-            gcodeState.e = 0;
-            preHotend = AMBIENT_TEMP;
-            preBed = AMBIENT_TEMP;
+            gcodeState.e = 0; preHotend = AMBIENT_TEMP; preBed = AMBIENT_TEMP;
 
-            let tempLayerMarks = [];
-            let prevZ = 0;
-            let cumulativeStepCount = 0;
-
-            let lineData = [];
+            let tempLayerMarks = [], prevZ = 0, cumulativeStepCount = 0, lineData = [];
 
             for (let i = 0; i < lines.length; i++) {
                 const parsed = parseGCodeLine(lines[i], i + 1);
@@ -2564,12 +2674,10 @@ G1 X20 Y20 E20</textarea>
                     planCommand(parsed.command, parsed.words, lines[i], i + 1, parsed.stringData);
                     stepQueue = originalStepQueue;
 
-                    let hasExtrude = false;
-                    let stepMaxZ = prevZ;
+                    let hasExtrude = false, stepMaxZ = prevZ;
                     for (let s = 0; s < tempQueue.length; s++) {
                         const step = tempQueue[s];
                         if (step.extruding) {
-                            // Fix: only count as layer if there is actual XYZ movement
                             const isPureE = step.target && step.from &&
                                 Math.abs(step.target.x - step.from.x) < 1e-6 &&
                                 Math.abs(step.target.y - step.from.y) < 1e-6 &&
@@ -2578,42 +2686,31 @@ G1 X20 Y20 E20</textarea>
                         }
                         if (step.target && step.target.z > stepMaxZ) stepMaxZ = step.target.z;
                     }
-
                     if (hasExtrude && stepMaxZ > prevZ + 0.01 && stepMaxZ > 0) {
                         tempLayerMarks.push({ step: cumulativeStepCount, z: stepMaxZ });
                         prevZ = stepMaxZ;
                     }
-
                     lineData.push({ steps: tempQueue.length });
                     cumulativeStepCount += tempQueue.length;
                 }
             }
 
             const total = cumulativeStepCount || 1;
-
             progressDensity = new Array(100).fill(0);
             let curStep = 0;
             for (let i = 0; i < lineData.length; i++) {
                 const startPct = (curStep / total) * 100;
                 const endPct = ((curStep + lineData[i].steps) / total) * 100;
-                const startBin = Math.floor(startPct);
-                const endBin = Math.floor(endPct);
+                const startBin = Math.floor(startPct), endBin = Math.floor(endPct);
                 const stepPerBin = lineData[i].steps / Math.max(1, endBin - startBin + 1);
                 for (let b = startBin; b <= endBin; b++) {
-                    if (b >= 0 && b < 100) {
-                        progressDensity[b] += stepPerBin;
-                    }
+                    if (b >= 0 && b < 100) progressDensity[b] += stepPerBin;
                 }
                 curStep += lineData[i].steps;
             }
 
-            layerMarkPercentages = tempLayerMarks
-                .map(item => (item.step / total) * 100)
-                .filter(p => p > 0.3 && p < 99.7);
-
-            if (layerMarkPercentages.length > 0 && layerMarkPercentages[0] > 0.5) {
-                layerMarkPercentages.unshift(0);
-            }
+            layerMarkPercentages = tempLayerMarks.map(item => (item.step / total) * 100).filter(p => p > 0.3 && p < 99.7);
+            if (layerMarkPercentages.length > 0 && layerMarkPercentages[0] > 0.5) layerMarkPercentages.unshift(0);
 
             restoreFullState(savedState);
             updateStatsPanel();
@@ -2623,20 +2720,12 @@ G1 X20 Y20 E20</textarea>
         function trapezoidProgress(t, a, d) {
             if (t <= 0) return 0;
             if (t >= 1) return 1;
-            a = Math.max(a, 0.001);
-            d = Math.max(d, 0.001);
+            a = Math.max(a, 0.001); d = Math.max(d, 0.001);
             const sum = a + d;
-            if (sum > 0.98) {
-                const k = 0.98 / sum;
-                a *= k; d *= k;
-            }
+            if (sum > 0.98) { const k = 0.98 / sum; a *= k; d *= k; }
             const vpeak = 1 / (1 - (a + d) / 2);
-            if (t < a) {
-                return vpeak * t * t / (2 * a);
-            } else if (t > 1 - d) {
-                const u = 1 - t;
-                return 1 - vpeak * u * u / (2 * d);
-            }
+            if (t < a) return vpeak * t * t / (2 * a);
+            else if (t > 1 - d) { const u = 1 - t; return 1 - vpeak * u * u / (2 * d); }
             return vpeak * a / 2 + vpeak * (t - a);
         }
 
@@ -2680,8 +2769,7 @@ G1 X20 Y20 E20</textarea>
                         currentPos.z = activeStep.pos.z;
                         currentE = activeStep.targetE;
                         updateNozzleTransform();
-                        lastExtrudePoint = null;
-                        leakPoint = null;
+                        lastExtrudePoint = null; leakPoint = null;
                         activeStep = null;
                         updateLineHighlight();
                         if (isSingleStep) { isSingleStep = false; break; }
@@ -2697,9 +2785,8 @@ G1 X20 Y20 E20</textarea>
                         let needWait = false;
                         if (activeStep.wait) {
                             if (m108Flag) {
-                                m108Flag = false;
-                                needWait = false;
-                                if (typeof window.showToast === 'function') window.showToast('M108: temperature wait skipped', 'info', 2000);
+                                m108Flag = false; needWait = false;
+                                if (typeof window.showToast === 'function') window.showToast(t('toastM108Skip'), 'info', 2000);
                             } else {
                                 const tgt = activeStep.target;
                                 if (tgt <= 0) {
@@ -2715,11 +2802,7 @@ G1 X20 Y20 E20</textarea>
                                 }
                             }
                         }
-                        if (needWait) {
-                            activeRing.unshift(activeStep);
-                            activeStep = null;
-                            break;
-                        }
+                        if (needWait) { activeRing.unshift(activeStep); activeStep = null; break; }
                         lastLineNum = activeStep.lineNum;
                         activeStep = null;
                         updateLineHighlight();
@@ -2728,11 +2811,10 @@ G1 X20 Y20 E20</textarea>
                     }
 
                     if (activeStep.type === 'pause_for_user') {
-                        isPaused = true;
-                        isSingleStep = false;
+                        isPaused = true; isSingleStep = false;
                         lastLineNum = activeStep.lineNum;
                         updateUIState();
-                        if (typeof window.showToast === 'function') window.showToast('Print Paused. Click Resume to continue.', 'info', 5000);
+                        if (typeof window.showToast === 'function') window.showToast(t('toastPaused'), 'info', 5000);
                         activeStep = null;
                         updateLineHighlight();
                         break;
@@ -2740,10 +2822,7 @@ G1 X20 Y20 E20</textarea>
 
                     if (activeStep.type === 'dwell' || activeStep.type === 'retract') {
                         if (activeStep.elapsed === undefined) activeStep.elapsed = 0;
-                        if (activeStep.type === 'retract') {
-                            lastExtrudePoint = null;
-                            leakPoint = null;
-                        }
+                        if (activeStep.type === 'retract') { lastExtrudePoint = null; leakPoint = null; }
                         const remain = activeStep.duration - activeStep.elapsed;
                         const used = Math.min(timeToSimulate, remain);
                         activeStep.elapsed += used;
@@ -2769,7 +2848,6 @@ G1 X20 Y20 E20</textarea>
 
                 let remainDuration = baseDuration - stepElapsed;
                 let stepT = Math.min(timeToSimulate, remainDuration);
-
                 stepElapsed += stepT;
                 timeToSimulate -= stepT;
 
@@ -2787,15 +2865,11 @@ G1 X20 Y20 E20</textarea>
                     if (currentHotend < COLD_EXTRUDE_MIN && !firmwareSettings.coldExtrudeAllow) {
                         if (!warnFlags.coldExtrude) {
                             warnFlags.coldExtrude = true;
-                            if (typeof window.showToast === 'function') {
-                                window.showToast('Cold extrusion prevented (T < ' + COLD_EXTRUDE_MIN + 'C)', 'warning', 4000);
-                            }
+                            if (typeof window.showToast === 'function') window.showToast(t('toastColdExtrude') + ' (T < ' + COLD_EXTRUDE_MIN + 'C)', 'warning', 4000);
                         }
-                        lastExtrudePoint = null;
-                        leakPoint = null;
+                        lastExtrudePoint = null; leakPoint = null;
                     } else {
                         const pxx = currentPos.x, pyy = currentPos.z, pzz = currentPos.y;
-
                         if (lastExtrudePoint === null) {
                             lastExtrudePoint = { x: pxx, y: pyy, z: pzz };
                         } else {
@@ -2808,12 +2882,10 @@ G1 X20 Y20 E20</textarea>
                                 lastExtrudePoint.x = pxx; lastExtrudePoint.y = pyy; lastExtrudePoint.z = pzz;
                             }
                         }
-
                         leakPoint = { x: pxx, y: pyy, z: pzz };
                         leakDist = 0;
                     }
                 } else {
-                    // Ooze / Drip logic: render if temp is high enough
                     if (currentHotend >= LEAK_TEMP_MIN) {
                         const pxx = currentPos.x, pyy = currentPos.z, pzz = currentPos.y;
                         if (!leakPoint) {
@@ -2821,8 +2893,8 @@ G1 X20 Y20 E20</textarea>
                             leakDist = 0;
                         } else {
                             const d = Math.sqrt((pxx - leakPoint.x) ** 2 + (pyy - leakPoint.y) ** 2 + (pzz - leakPoint.z) ** 2);
-                            if (d > 0.001) { // Extremely low threshold for continuous stringing
-                                const fade = Math.max(0.3, 1.0 - (leakDist / 300.0)); // Fade out over 300mm, minimum 0.3 opacity
+                            if (d > 0.001) {
+                                const fade = Math.max(0.3, 1.0 - (leakDist / 300.0));
                                 const col = getColorForZ(pzz);
                                 if (pushSegment(leakPoint.x, leakPoint.y, leakPoint.z, pxx, pyy, pzz,
                                     col[0] * 0.8 * fade, col[1] * 0.8 * fade, col[2] * 0.8 * fade)) {
@@ -2864,50 +2936,34 @@ G1 X20 Y20 E20</textarea>
         }
 
         function resetRuntimeFlags() {
-            hotendStableTime = 0;
-            bedStableTime = 0;
-            runawayTimer = 0;
+            hotendStableTime = 0; bedStableTime = 0; runawayTimer = 0;
             thermalRunaway = false;
             warnFlags = { coldExtrude: false, softLimit: false };
-            leakPoint = null;
-            leakDist = 0;
+            leakPoint = null; leakDist = 0;
             currentMultiColorIndex = 0;
             mixColors = [];
-            currentColorMode = 'single';
-            document.getElementById('color-mode').value = 'single';
-            lastLineNum = 0;
-            m108Flag = false;
-
-            estTimeMs = 0;
-            estFilamentMm = 0;
-            estLayers.clear();
-
+            lastLineNum = 0; m108Flag = false;
+            estTimeMs = 0; estFilamentMm = 0; estLayers.clear();
             Object.assign(firmwareSettings, JSON.parse(JSON.stringify(firmwareDefaults)));
         }
 
         function toggleMainAction() {
             if (isStopped) {
                 const text = textarea.value;
-                const lines = text.split('\n');
+                if (text && text.trim().length > 0) postBackendLoad(text);
 
-                currentPos = { x: 0, y: 0, z: 0 };
-                currentE = 0;
+                const lines = text.split('\n');
+                currentPos = { x: 0, y: 0, z: 0 }; currentE = 0;
                 plannerPos.x = 0; plannerPos.y = 0; plannerPos.z = 0;
-                gcodeState.e = 0;
-                gcodeState.feedrate = 1500;
-                gcodeState.absolutePosition = true;
-                gcodeState.absoluteExtrusion = true;
-                gcodeState.absoluteArcCenter = false;
-                gcodeState.unitScale = 1.0;
-                lastMoveDir = null;
-                lastExtrudePoint = null;
-                fanSpeed = 0;
+                gcodeState.e = 0; gcodeState.feedrate = 1500;
+                gcodeState.absolutePosition = true; gcodeState.absoluteExtrusion = true;
+                gcodeState.absoluteArcCenter = false; gcodeState.unitScale = 1.0;
+                lastMoveDir = null; lastExtrudePoint = null;
+                fanP0 = 0; fanP1 = 0; fanP2 = 0; fanSpeed = 0;
                 steppersEnabled = true;
-                resetRuntimeFlags();
-                updateNozzleTransform();
+                resetRuntimeFlags(); updateNozzleTransform();
                 isStopped = false; isPaused = false; isAnimating = true; isSingleStep = false;
-                stepQueue = [];
-                activeRing = [];
+                stepQueue = []; activeRing = [];
                 setProgress(0);
                 jobStartTime = performance.now();
 
@@ -2928,12 +2984,8 @@ G1 X20 Y20 E20</textarea>
                     }
                 }
 
-                if (warmBed > 0) {
-                    stepQueue.push({ type: 'set_temp', target: warmBed, isBed: true, wait: true, duration: 1, rawLine: 'Auto-warm Bed', lineNum: 0 });
-                }
-                if (warmHotend > 0) {
-                    stepQueue.push({ type: 'set_temp', target: warmHotend, isBed: false, wait: true, duration: 1, rawLine: 'Auto-warm Hotend', lineNum: 0 });
-                }
+                if (warmBed > 0) stepQueue.push({ type: 'set_temp', target: warmBed, isBed: true, wait: true, duration: 1, rawLine: 'Auto-warm Bed', lineNum: 0 });
+                if (warmHotend > 0) stepQueue.push({ type: 'set_temp', target: warmHotend, isBed: false, wait: true, duration: 1, rawLine: 'Auto-warm Hotend', lineNum: 0 });
 
                 for (let i = 0; i < lines.length; i++) {
                     const rawLine = lines[i];
@@ -2942,13 +2994,11 @@ G1 X20 Y20 E20</textarea>
                 }
 
                 totalSteps = stepQueue.length;
-                activeStep = null;
-                lastFrameTime = performance.now();
-                lastLockState = null;
+                activeStep = null; lastFrameTime = performance.now(); lastLockState = null;
             } else {
-                isPaused = !isPaused;
-                isSingleStep = false;
+                isPaused = !isPaused; isSingleStep = false;
                 if (!isPaused) lastFrameTime = performance.now();
+                postBackendControl(isPaused ? 'pause' : 'resume');
             }
             updateUIState();
         }
@@ -2957,116 +3007,149 @@ G1 X20 Y20 E20</textarea>
             if (!isPaused || isStopped) return;
             isSingleStep = true;
             lastFrameTime = performance.now();
+            postBackendControl('step');
             updateAnimation(performance.now());
             updateUIState();
         }
 
         function stopSimulation() {
             isStopped = true; isPaused = false; isAnimating = false; isSingleStep = false;
-            stepQueue = [];
-            activeRing = [];
-            activeStep = null;
-            targetHotend = 0; targetBed = 0;
-            hotendStableTime = 0; bedStableTime = 0;
-            leakPoint = null; leakDist = 0;
-            lastLineNum = 0;
-            lastLockState = null;
+            stepQueue = []; activeRing = []; activeStep = null;
+            targetHotend = 0; targetBed = 0; hotendStableTime = 0; bedStableTime = 0;
+            leakPoint = null; leakDist = 0; lastLineNum = 0; lastLockState = null;
 
             lineHighlight.style.display = 'none';
-            lastHighlightLine = -1;
-            lastHighlightScrollTop = -1;
+            lastHighlightLine = -1; lastHighlightScrollTop = -1;
 
-            setProgress(0);
-            updateLineHighlight();
-            updateUIState();
-            jobStartTime = 0;
+            setProgress(0); updateLineHighlight(); updateUIState(); jobStartTime = 0;
+            postBackendControl('stop');
         }
 
-        // ============================================================
-        // 9. Public Entry Points & Terminal
-        // ============================================================
+        // 9. Public Entry Points
+        function postBackendLoad(gcodeText) {
+            return fetch('/load', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ gcode: gcodeText }) }).catch(function () { });
+        }
+        function postBackendControl(action, extra) {
+            const payload = Object.assign({ action: action }, extra || {});
+            return fetch('/control', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(function () { });
+        }
+
         function sendTerminalCommand() {
             const input = document.getElementById('terminal-input');
             const val = input.value.trim();
             if (!val) return;
 
-            logTerminal(`>> ${val}`, 'cmd');
+            const lines = val.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            if (lines.length === 0) return;
+
             input.value = '';
+            let hasNewMotion = false;
 
-            // Send to backend for state sync
-            fetch('/command', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ line: val })
-            });
+            // Send each line individually for a realistic terminal interaction
+            lines.forEach(line => {
+                logTerminal(`>> ${line}`, 'cmd');
 
-            const lines = val.split('\n');
-            for (let i = 0; i < lines.length; i++) {
-                const parsed = parseGCodeLine(lines[i], 0);
+                fetch('/command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ line: line })
+                }).then(res => res.json()).then(data => {
+                    if (data.status === 'ok' && data.results) {
+                        data.results.forEach(r => {
+                            if (r !== 'wait') {
+                                logTerminal(r, r.startsWith('error') ? 'err' : 'ok');
+                            }
+                        });
+                    }
+                }).catch(() => {
+                    logTerminal("Error: Failed to reach backend", "err");
+                });
+
+                // Synchronize local 3D animation logic
+                const parsed = parseGCodeLine(line, 0);
                 if (parsed) {
                     if (isStopped) {
-                        planCommand(parsed.command, parsed.words, lines[i], 0, parsed.stringData);
-                        if (stepQueue.length > 0) {
-                            isStopped = false; isPaused = false; isAnimating = true;
-                            totalSteps = stepQueue.length;
-                            activeStep = null;
-                            lastFrameTime = performance.now();
-                            jobStartTime = performance.now();
-                            updateUIState();
-                        }
+                        planCommand(parsed.command, parsed.words, line, 0, parsed.stringData);
+                        if (stepQueue.length > 0) hasNewMotion = true;
                     } else {
-                        planCommand(parsed.command, parsed.words, lines[i], 0, parsed.stringData);
+                        planCommand(parsed.command, parsed.words, line, 0, parsed.stringData);
                         totalSteps = stepQueue.length;
                     }
-                } else {
-                    logTerminal(`echo:Unknown command: "${lines[i]}"`, 'err');
                 }
+            });
+
+            if (hasNewMotion) {
+                isStopped = false; isPaused = false; isAnimating = true;
+                totalSteps = stepQueue.length;
+                activeStep = null;
+                lastFrameTime = performance.now();
+                jobStartTime = performance.now();
+                updateUIState();
             }
-            logTerminal("ok", "ok");
         }
 
         function sendCmd(cmdStr) {
             if (isAnimating || isPaused) return;
 
-            // Send to backend for state sync
-            fetch('/command', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ line: cmdStr })
-            });
+            const lines = cmdStr.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-            const lines = cmdStr.split('\n');
+            // Reset local queue
             stepQueue = [];
             activeRing = [];
             lastMoveDir = null;
             resetRuntimeFlags();
-            for (let i = 0; i < lines.length; i++) {
-                const parsed = parseGCodeLine(lines[i], 0);
-                if (!parsed) continue;
-                planCommand(parsed.command, parsed.words, lines[i], 0, parsed.stringData);
-            }
+
+            // Send each line individually
+            lines.forEach(line => {
+                logTerminal(`>> ${line}`, 'cmd');
+
+                fetch('/command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ line: line })
+                }).then(res => res.json()).then(data => {
+                    if (data.status === 'ok' && data.results) {
+                        data.results.forEach(r => {
+                            if (r !== 'wait') {
+                                logTerminal(r, r.startsWith('error') ? 'err' : 'ok');
+                            }
+                        });
+                    }
+                }).catch(() => {
+                    logTerminal("Error: Failed to reach backend", "err");
+                });
+
+                // Plan local animation
+                const parsed = parseGCodeLine(line, 0);
+                if (parsed) {
+                    planCommand(parsed.command, parsed.words, line, 0, parsed.stringData);
+                }
+            });
+
             totalSteps = stepQueue.length;
-            isStopped = false; isPaused = false; isAnimating = true; isSingleStep = false;
-            activeStep = null;
-            lastFrameTime = performance.now();
-            lastLockState = null;
-            setProgress(0);
-            jobStartTime = performance.now();
-            updateUIState();
+            if (totalSteps > 0) {
+                isStopped = false; isPaused = false; isAnimating = true; isSingleStep = false;
+                activeStep = null;
+                lastFrameTime = performance.now();
+                lastLockState = null;
+                setProgress(0);
+                jobStartTime = performance.now();
+                updateUIState();
+            }
         }
 
         function handleFileUpload(event) {
-            const file = event.target.files[0];
+            const file = (event.target && event.target.files && event.target.files[0]) || null;
             if (!file) return;
             const reader = new FileReader();
             reader.onload = function (e) {
                 textarea.value = e.target.result;
                 lastLineNumberCount = -1;
                 preprocessGCode(e.target.result);
-                window.showToast("文件读取成功！参数已同步，点击 '运行' 开始仿真。", 'success');
+                window.showToast(t('toastFileLoaded'), 'success');
             };
             reader.readAsText(file);
-            event.target.value = '';
+            try { if (event.target) event.target.value = ''; } catch (_) { /* noop */ }
         }
 
         function updateMachineVolume() {
@@ -3080,19 +3163,25 @@ G1 X20 Y20 E20</textarea>
             bedMesh.position.set(BED_WIDTH / 2, -0.2, BED_DEPTH / 2);
 
             spherical.radius = Math.max(BED_WIDTH, BED_DEPTH, MAX_HEIGHT) * 1.5;
-            updateCamera();
-            updateSliceModelFill();
+            updateCamera(); updateSliceModelFill();
         }
 
-        document.getElementById('printTemp').addEventListener('input', e => {
-            targetHotend = parseFloat(e.target.value) || 0;
+        document.getElementById('printTemp').addEventListener('input', e => { targetHotend = parseFloat(e.target.value) || 0; });
+        document.getElementById('bedTemp').addEventListener('input', e => { targetBed = parseFloat(e.target.value) || 0; });
+
+        document.getElementById('fan-p0').addEventListener('input', (e) => {
+            const v = Math.max(0, Math.min(255, Math.round(parseFloat(e.target.value) || 0)));
+            fetch('/command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ line: 'M106 P0 S' + v }) }).catch(function () { });
+            fanP0 = v / 255; fanSpeed = fanP0;
         });
-        document.getElementById('bedTemp').addEventListener('input', e => {
-            targetBed = parseFloat(e.target.value) || 0;
+        document.getElementById('fan-p2').addEventListener('input', (e) => {
+            const v = Math.max(0, Math.min(255, Math.round(parseFloat(e.target.value) || 0)));
+            fetch('/command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ line: 'M106 P2 S' + v }) }).catch(function () { });
+            fanP2 = v / 255;
         });
 
         // ============================================================
-        // 10. Render Loop (PID Thermal Dynamics & UI Update)
+        // 10. Render Loop
         // ============================================================
         const pidHotend = { kp: 0.06, ki: 0.0005, kd: 0.02, integral: 0, lastErr: 0 };
         const pidBed = { kp: 0.10, ki: 0.0003, kd: 0.01, integral: 0, lastErr: 0 };
@@ -3128,16 +3217,37 @@ G1 X20 Y20 E20</textarea>
             if (dt > 0.1) dt = 0.1;
             if (dt <= 0) return;
 
+            if (isStopped && backendIdleState) {
+                currentHotend = backendIdleState.hotend;
+                currentBed = backendIdleState.bed;
+                targetHotend = backendIdleState.hotendTarget;
+                targetBed = backendIdleState.bedTarget;
+
+                PrinterModel.setTemperatureVisual(currentHotend, AMBIENT_TEMP);
+
+                const bedFactorIdle = Math.max(0, currentBed - AMBIENT_TEMP) / 80;
+                bedMat.color.setRGB(
+                    0.16 + bedFactorIdle * 0.4,
+                    0.16 + bedFactorIdle * 0.1,
+                    0.22 - bedFactorIdle * 0.1
+                );
+
+                if (now - lastUIUpdateTime > 100) {
+                    updateUIState();
+                    lastUIUpdateTime = now;
+                }
+                return;
+            }
+
             let simDt = dt * currentSpeedMult;
 
             if (simDt > 0) {
                 let steps = Math.max(1, Math.min(200, Math.ceil(simDt / 0.05)));
                 let stepDt = simDt / steps;
-                const fanEffect = 1 + fanSpeed * 0.5;
+                const fanEffect = 1 + fanP0 * 0.5;
 
                 for (let i = 0; i < steps; i++) {
                     const prevHotend = currentHotend;
-
                     currentHotend = pidThermalStep(pidHotend, currentHotend, targetHotend, stepDt, 25, 0.008 * fanEffect);
                     currentBed = pidThermalStep(pidBed, currentBed, targetBed, stepDt, 8, 0.004 * fanEffect);
 
@@ -3145,6 +3255,8 @@ G1 X20 Y20 E20</textarea>
                     else hotendStableTime = 0;
                     if (targetBed > 1 && Math.abs(currentBed - targetBed) <= 1.5) bedStableTime += stepDt;
                     else bedStableTime = 0;
+
+                    fanP1 = (currentHotend > 50) ? 1.0 : 0.0;
 
                     if (!thermalRunaway && targetHotend > 1 && currentHotend < targetHotend - 5) {
                         const rise = currentHotend - prevHotend;
@@ -3157,14 +3269,13 @@ G1 X20 Y20 E20</textarea>
                         thermalRunaway = true;
                         targetHotend = 0;
                         if (typeof window.showToast === 'function') {
-                            window.showToast('Thermal Runaway detected: heater disabled', 'error', 5000);
+                            window.showToast(t('toastThermalRunaway'), 'error', 5000);
                         }
                     }
                 }
             }
 
-            const hotendFactor = Math.max(0, currentHotend - AMBIENT_TEMP) / 230;
-            nozzleMat.color.setRGB(0.6 + hotendFactor * 0.4, 0.6 - hotendFactor * 0.4, 0.6 - hotendFactor * 0.4);
+            PrinterModel.setTemperatureVisual(currentHotend, AMBIENT_TEMP);
 
             const bedFactor = Math.max(0, currentBed - AMBIENT_TEMP) / 80;
             bedMat.color.setRGB(0.16 + bedFactor * 0.4, 0.16 + bedFactor * 0.1, 0.22 - bedFactor * 0.1);
@@ -3177,16 +3288,21 @@ G1 X20 Y20 E20</textarea>
 
         function animate(time) {
             requestAnimationFrame(animate);
+
+            const dt = (time - (lastAnimateTime || time)) / 1000;
+            lastAnimateTime = time;
+
             updateAnimation(time);
             updateThermalDynamics(time);
             updateCamera();
+
+            PrinterModel.updateFans(dt, fanP0, fanP1, MAX_FAN_RPM);
+
             renderer.render(scene, camera);
         }
 
-        updateLineNumbers();
-        updateNozzleTransform();
-        updateLanguage();
-        updateCamera();
+        updateLineNumbers(); updateNozzleTransform();
+        updateLanguage(); updateCamera();
         preprocessGCode(textarea.value);
         requestAnimationFrame(animate);
 
@@ -3196,70 +3312,82 @@ G1 X20 Y20 E20</textarea>
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // ============================================================
-        // 11. NODE.JS BRIDGE INJECTION
-        // ============================================================
+        window.addEventListener('keydown', (e) => {
+            const tag = (e.target && e.target.tagName || '').toLowerCase();
+            const isInput = tag === 'input' || tag === 'textarea' || tag === 'select';
+            if (e.key === 'Escape') { if (!isStopped) { e.preventDefault(); stopSimulation(); } return; }
+            if (e.key === ' ' && !isInput) { if (!btnMain.disabled) { e.preventDefault(); toggleMainAction(); } return; }
+            if (e.key === 'Home' && !isInput) { e.preventDefault(); if (!isAnimating && !isPaused) sendCmd('G28'); return; }
+        });
+
+        ['dragenter', 'dragover'].forEach(ev => {
+            window.addEventListener(ev, (e) => {
+                e.preventDefault();
+                try { e.dataTransfer.dropEffect = 'copy'; } catch (_) { /* noop */ }
+                document.body.classList.add('drag-over');
+            });
+        });
+        ['dragleave', 'drop'].forEach(ev => {
+            window.addEventListener(ev, (e) => {
+                e.preventDefault();
+                if (ev === 'drop') {
+                    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+                    if (f) handleFileUpload({ target: { files: [f], value: '' } });
+                }
+                document.body.classList.remove('drag-over');
+            });
+        });
+
+        // 11. BRIDGE
         const evtSource = new EventSource('/events');
+        const sseDot = document.getElementById('sse-dot');
+        sseDot.classList.remove('connected', 'disconnected'); sseDot.classList.add('disconnected');
+
+        evtSource.onopen = () => { sseDot.classList.remove('disconnected'); sseDot.classList.add('connected'); };
+        evtSource.onerror = () => { sseDot.classList.remove('connected'); sseDot.classList.add('disconnected'); };
 
         evtSource.addEventListener('gcode', (e) => {
             const data = JSON.parse(e.data);
-
-            // If this command came from the web UI, ignore it to prevent double execution
             if (data.source === 'web') return;
-
-            // Log the incoming command
             logTerminal(`>> ${data.line}`, 'cmd');
-
-            // Execute the external command locally (bypassing terminal input)
             const lines = data.line.split('\n');
             for (let i = 0; i < lines.length; i++) {
                 const parsed = parseGCodeLine(lines[i], 0);
                 if (parsed) {
-                    if (isStopped) {
-                        stepQueue = [];
-                        activeRing = [];
-                    }
-
+                    if (isStopped) { stepQueue = []; activeRing = []; }
                     planCommand(parsed.command, parsed.words, lines[i], 0, parsed.stringData);
-
                     if (stepQueue.length > 0 || activeRing.length > 0) {
                         if (isStopped) {
-                            isStopped = false;
-                            isPaused = false;
-                            isAnimating = true;
-                            isSingleStep = false;
-                            activeStep = null;
-                            lastFrameTime = performance.now();
-                            jobStartTime = performance.now();
+                            isStopped = false; isPaused = false; isAnimating = true; isSingleStep = false;
+                            activeStep = null; lastFrameTime = performance.now(); jobStartTime = performance.now();
                         }
                         totalSteps = stepQueue.length + activeRing.length;
                     }
                 }
             }
-            logTerminal("ok", "ok");
-            updateUIState();
+            logTerminal("ok", "ok"); updateUIState();
         });
 
         evtSource.addEventListener('state', (e) => {
             const data = JSON.parse(e.data);
-
-            if (data.fanSpeed !== undefined) fanSpeed = data.fanSpeed;
+            if (Array.isArray(data.fanSpeeds)) {
+                fanP0 = data.fanSpeeds[0]; fanP1 = data.fanSpeeds[1]; fanP2 = data.fanSpeeds[2]; fanSpeed = fanP0;
+            } else if (data.fanSpeed !== undefined) {
+                fanP0 = data.fanSpeed; fanSpeed = data.fanSpeed;
+            }
             if (data.speedFactor !== undefined) firmwareSettings.speedFactor = data.speedFactor;
             if (data.flowFactor !== undefined) firmwareSettings.flowFactor = data.flowFactor;
 
-            // Only sync coordinates when the local UI is completely idle
-            // This prevents the frontend from teleporting while executing a local animation
+            if (isStopped) backendIdleState = data;
+
             if (isStopped || (!isAnimating && !activeStep)) {
-                if (Math.abs(plannerPos.x - data.x) > 0.01 || Math.abs(plannerPos.y - data.y) > 0.01) {
-                    plannerPos.x = data.x;
-                    plannerPos.y = data.y;
-                    plannerPos.z = data.z;
-
-                    currentPos.x = data.x;
-                    currentPos.y = data.y;
-                    currentPos.z = data.z;
-
+                if (Math.abs(plannerPos.x - data.x) > 0.01 || Math.abs(plannerPos.y - data.y) > 0.01 || Math.abs(plannerPos.z - data.z) > 0.01) {
+                    plannerPos.x = data.x; plannerPos.y = data.y; plannerPos.z = data.z;
+                    currentPos.x = data.x; currentPos.y = data.y; currentPos.z = data.z;
                     updateNozzleTransform();
+                }
+                if (data.e !== undefined) {
+                    gcodeState.e = data.e; currentE = data.e;
                 }
             }
         });
