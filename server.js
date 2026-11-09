@@ -27,7 +27,6 @@ setInterval(() => {
 
 // ---------------------------------------------------------------------------
 // Helper: Align multi-line responses for clean console logging.
-// The raw response is still sent to the host software via socket.write().
 // ---------------------------------------------------------------------------
 function logAligned(prefix, response) {
     const lines = response.split('\n');
@@ -195,42 +194,64 @@ class TcpSession {
 
     _processLine(cmd) {
         console.log('[TCP] <- ' + cmd);
-        const parsed = core.parseGCodeLine(cmd);
-        if (!parsed) { this._write('ok'); return; }
 
-        broadcast('gcode', { line: cmd, source: 'tcp' });
+        try {
+            const parsed = core.parseGCodeLine(cmd);
+            if (!parsed) { this._write('ok'); return; }
 
-        if (core.isImmediateCommand(parsed.command)) {
-            const response = core.executeLine(cmd);
-            if (response !== 'ok') {
-                logAligned('[TCP] -> ', response);
-                broadcast('response', { line: cmd, response });
+            broadcast('gcode', { line: cmd, source: 'tcp' });
+
+            // 1. Immediate commands (e.g., M114, M105)
+            if (core.isImmediateCommand(parsed.command)) {
+                const response = core.executeLine(cmd);
+                if (response !== 'ok') {
+                    logAligned('[TCP] -> ', response);
+                    broadcast('response', { line: cmd, response });
+                }
+                this._write(response);
+                broadcast('state', core.snapshot());
+                return;
             }
-            this._write(response);
+
+            // 2. Blocking commands (M109 / M190)
+            if (parsed.command === 'M109' || parsed.command === 'M190') {
+                this._write('busy: processing');
+                const onComplete = (response) => {
+                    if (this._closed) return;
+                    const resp = response || 'ok';
+                    this._write(resp);
+                    broadcast('state', core.snapshot());
+                };
+                core.executor.enqueueLine(parsed, cmd, 0, onComplete);
+                return;
+            }
+
+            // 3. Queued Motion commands (G0, G1, G2, G3, etc.)
+            // Send 'ok' IMMEDIATELY before processing the movement.
+            this._write('ok');
             broadcast('state', core.snapshot());
-            return;
+
+            // Enqueue locally and let the executor handle it in the background
+            core.executor.enqueueLine(parsed, cmd, 0, null);
+
+        } catch (err) {
+            console.error('[TCP] Internal Error while processing:', err);
+            this._write('error:Internal Server Error');
         }
-
-        const isWait = (parsed.command === 'M109' || parsed.command === 'M190');
-        if (isWait) this._write('busy: processing');
-
-        const onComplete = (response) => {
-            if (this._closed) return;
-            const resp = response || 'ok';
-            if (resp !== 'ok' && resp !== 'wait') {
-                logAligned('[TCP] -> ', resp);
-                broadcast('response', { line: cmd, response: resp });
-            }
-            this._write(resp);
-            broadcast('state', core.snapshot());
-        };
-
-        core.executor.enqueueLine(parsed, cmd, 0, onComplete);
     }
 
     _write(text) {
-        if (this._closed || !this.socket.writable) return;
-        // Send the raw string exactly as the firmware would, including '\n'
+        if (this._closed || !this.socket.writable) {
+            console.log(`[TCP] (Skipped write to disconnected host): ${text}`);
+            return;
+        }
+        // Log BEFORE writing so we can see exactly what is being sent
+        if (text === 'ok') {
+            console.log('[TCP] -> ok');
+        } else if (text !== 'busy: processing') {
+            logAligned('[TCP] -> ', text);
+        }
+
         this.socket.write(text + '\n');
     }
 }
