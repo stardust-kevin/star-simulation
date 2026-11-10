@@ -324,9 +324,44 @@ export class PrintExecutor {
             return;
         }
 
+        if (cmd === 'M104') {
+            if (words.S !== undefined) {
+                this.core.temps.hotendTarget = clamp(words.S, 0, this.core.settings.hotendMax);
+                // If the target is 0, it means we cancel any pending wait for the hotend.
+                if (this.core.temps.hotendTarget === 0) {
+                    this.core.waitingHotend = 0;
+                    if (this._pendingWait && !this._pendingWait.isBed) {
+                        this.blocked = false;
+                        this._pendingWait = null;
+                    }
+                }
+            }
+            this.plan.push({ type: 'immediate', cmd, words, rawLine, lineNum, onComplete });
+            return;
+        }
+
+        if (cmd === 'M140') {
+            if (words.S !== undefined) {
+                this.core.temps.bedTarget = clamp(words.S, 0, this.core.settings.bedMax);
+                // If the target is 0, it means we cancel any pending wait for the bed.
+                if (this.core.temps.bedTarget === 0) {
+                    this.core.waitingBed = 0;
+                    if (this._pendingWait && this._pendingWait.isBed) {
+                        this.blocked = false;
+                        this._pendingWait = null;
+                    }
+                }
+            }
+            this.plan.push({ type: 'immediate', cmd, words, rawLine, lineNum, onComplete });
+            return;
+        }
+
         if (cmd === 'M109' || cmd === 'M190') {
             const target = (words.S !== undefined) ? words.S : words.R;
             if (target !== undefined) {
+                if (cmd === 'M190') this.core.temps.bedTarget = clamp(target, 0, this.core.settings.bedMax);
+                else this.core.temps.hotendTarget = clamp(target, 0, this.core.settings.hotendMax);
+
                 this.plan.push({
                     type: 'set_temp',
                     target,
@@ -529,13 +564,16 @@ export class PrintExecutor {
             }
 
             if (seg.type === 'set_temp') {
-                if (seg.isBed) this.core.temps.bedTarget = clamp(seg.target, 0, this.core.settings.bedMax);
-                else this.core.temps.hotendTarget = clamp(seg.target, 0, this.core.settings.hotendMax);
+                // Temps are already set in _enqueueParsed to avoid race conditions.
                 this.index++;
                 if (seg.wait) {
                     this.blocked = true;
                     this._pendingWait = seg;
-                } else if (seg.onComplete) seg.onComplete('ok');
+                    if (seg.isBed) this.core.waitingBed = this.core.temps.bedTarget;
+                    else this.core.waitingHotend = this.core.temps.hotendTarget;
+                } else if (seg.onComplete) {
+                    seg.onComplete('ok');
+                }
                 if (this.stepOnce) { this.stepOnce = false; break; }
                 continue;
             }

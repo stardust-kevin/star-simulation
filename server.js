@@ -201,7 +201,7 @@ class TcpSession {
 
             broadcast('gcode', { line: cmd, source: 'tcp' });
 
-            // 1. Immediate commands (e.g., M114, M105)
+            // 1. Immediate commands (e.g., M105, M114): execute synchronously and reply instantly.
             if (core.isImmediateCommand(parsed.command)) {
                 const response = core.executeLine(cmd);
                 this._write(response);
@@ -209,21 +209,22 @@ class TcpSession {
                 return;
             }
 
-            // 2. Blocking commands (M109 / M190)
+            // 2. Blocking temperature commands (M109 / M190):
+            // Reply with 'busy: processing' and wait for target temperature to be reached.
             if (parsed.command === 'M109' || parsed.command === 'M190') {
                 this._write('busy: processing');
                 const onComplete = (response) => {
                     if (this._closed) return;
-                    const resp = response || 'ok';
-                    this._write(resp);
+                    this._write('ok');
                     broadcast('state', core.snapshot());
                 };
                 core.executor.enqueueLine(parsed, cmd, 0, onComplete);
                 return;
             }
 
-            // 3. Queued Motion commands (G0, G1, G2, G3, etc.)
-            // Send 'ok' IMMEDIATELY before processing the movement.
+            // 3. Queued Motion/State commands (G0, G1, G28, M104, M140, M84, etc.):
+            // Real Marlin firmware returns 'ok' immediately upon buffering the command.
+            // This prevents the host from timing out while the physical movement or background action completes.
             this._write('ok');
             broadcast('state', core.snapshot());
 
