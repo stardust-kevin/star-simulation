@@ -476,7 +476,22 @@ export class PrintExecutor {
     // Virtual clock tick. dtWall is in seconds.
     // -----------------------------------------------------------------------
     tick(dtWall) {
-        if (!this.running || this.paused || this.blocked) return;
+        // 1. Handle blocking temperature wait FIRST.
+        // This prevents a deadlock where the tick returns early and never evaluates the temperature.
+        if (this.blocked && this._pendingWait) {
+            if (this.core.isTempWaitDone()) {
+                this.blocked = false;
+                const w = this._pendingWait;
+                this._pendingWait = null;
+                if (w.onComplete) w.onComplete('ok');
+            } else {
+                // Still waiting for temperature, skip motion ticking
+                return;
+            }
+        }
+
+        // 2. Stop ticking if not running or paused
+        if (!this.running || this.paused) return;
 
         let simMs = dtWall * 1000 * this.speedFactor;
         if (this.stepOnce) simMs = 1e9;
@@ -570,15 +585,6 @@ export class PrintExecutor {
             }
 
             this.index++;
-        }
-
-        if (this.blocked && this._pendingWait) {
-            if (this.core.isTempWaitDone()) {
-                this.blocked = false;
-                const w = this._pendingWait;
-                this._pendingWait = null;
-                if (w.onComplete) w.onComplete('ok');
-            }
         }
     }
 
@@ -1015,14 +1021,10 @@ export class PrinterCore {
     tickThermal(dt) {
         if (this.halted || !(dt > 0)) return;
 
-        // Fast path: fast-forward playback can produce huge dt. PID evaluated
-        // at dt > 5 s is not meaningful; snap to targets and clear the runaway
-        // watchdog, then still update fan PWM.
+        // Fast path for high speed to prevent false thermal runaway
         if (dt > 5.0) {
-            this.temps.hotend = (this.temps.hotendTarget > 1)
-                ? this.temps.hotendTarget : AMBIENT_TEMP;
-            this.temps.bed = (this.temps.bedTarget > 1)
-                ? this.temps.bedTarget : AMBIENT_TEMP;
+            this.temps.hotend = (this.temps.hotendTarget > 1) ? this.temps.hotendTarget : AMBIENT_TEMP;
+            this.temps.bed = (this.temps.bedTarget > 1) ? this.temps.bedTarget : AMBIENT_TEMP;
             this.hotendStableTime = 1.0;
             this.bedStableTime = 1.0;
             this._stuckTimer = 0;
@@ -1031,9 +1033,11 @@ export class PrinterCore {
         }
 
         const s = this.settings;
-        // Model fan (P0) also participates in hotend cooling.
         const modelFan = this.fanPWM[0];
         const fanEffect = 1 + modelFan * 0.5;
+
+        const prevHotend = this.temps.hotend;
+        const prevBed = this.temps.bed;
 
         this.temps.hotend = this._pidStep(this.pidHotend, this.temps.hotend, this.temps.hotendTarget, dt, 25, 0.008 * fanEffect, s.hotendMax);
         this.temps.bed = this._pidStep(this.pidBed, this.temps.bed, this.temps.bedTarget, dt, 8, 0.004 * fanEffect, s.bedMax);
@@ -1043,8 +1047,14 @@ export class PrinterCore {
         if (this.temps.bedTarget > 1 && Math.abs(this.temps.bed - this.temps.bedTarget) <= 1.5) this.bedStableTime += dt;
         else this.bedStableTime = 0;
 
+        // Thermal Runaway Watchdog (Marlin behavior: reset if temperature is rising)
         if (this.temps.hotendTarget > 1 && this.temps.hotend < this.temps.hotendTarget - 5) {
-            this._stuckTimer += dt;
+            const rise = this.temps.hotend - prevHotend;
+            if (rise < 0.05 * dt) {
+                this._stuckTimer += dt;
+            } else {
+                this._stuckTimer = Math.max(0, this._stuckTimer - dt * 2);
+            }
             if (this._stuckTimer > 120) {
                 this.thermalRunaway = true;
                 this.halted = true;

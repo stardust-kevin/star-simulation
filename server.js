@@ -204,10 +204,6 @@ class TcpSession {
             // 1. Immediate commands (e.g., M114, M105)
             if (core.isImmediateCommand(parsed.command)) {
                 const response = core.executeLine(cmd);
-                if (response !== 'ok') {
-                    logAligned('[TCP] -> ', response);
-                    broadcast('response', { line: cmd, response });
-                }
                 this._write(response);
                 broadcast('state', core.snapshot());
                 return;
@@ -241,18 +237,24 @@ class TcpSession {
     }
 
     _write(text) {
-        if (this._closed || !this.socket.writable) {
-            console.log(`[TCP] (Skipped write to disconnected host): ${text}`);
-            return;
-        }
-        // Log BEFORE writing so we can see exactly what is being sent
+        // Log exactly what is being sent
         if (text === 'ok') {
             console.log('[TCP] -> ok');
-        } else if (text !== 'busy: processing') {
+        } else {
+            // This now properly prints 'busy: processing' or errors
             logAligned('[TCP] -> ', text);
         }
 
-        this.socket.write(text + '\n');
+        // Guard against disconnected or destroyed sockets to prevent EPIPE
+        if (this._closed || !this.socket.writable || this.socket.destroyed) {
+            return;
+        }
+
+        try {
+            this.socket.write(text + '\n');
+        } catch (err) {
+            console.error('[TCP] Write error:', err.message);
+        }
     }
 }
 
