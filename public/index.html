@@ -1843,6 +1843,11 @@ G1 X20 Y20 E20</textarea>
             if (type) el.className = 'term-' + type;
             el.innerText = text;
             out.appendChild(el);
+
+            if (out.childElementCount > 200) {
+                out.removeChild(out.firstChild);
+            }
+
             out.scrollTop = out.scrollHeight;
         }
 
