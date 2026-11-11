@@ -2472,10 +2472,9 @@ G1 X20 Y20 E20</textarea>
                 case 'M163':
                     if (words.S !== undefined && words.P !== undefined) {
                         mixColors[words.S] = words.P;
-                        if (!isPreprocessing) {
-                            currentColorMode = 'multi';
-                            document.getElementById('color-mode').value = 'multi';
-                        }
+
+                        currentColorMode = 'multi';
+                        document.getElementById('color-mode').value = 'multi';
                     }
                     break;
                 case 'M600': {
@@ -2488,17 +2487,16 @@ G1 X20 Y20 E20</textarea>
                     stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: plannerPos.z + raiseZ }, targetE: tempE, extruding: false, duration: 1000, ...meta });
                     stepQueue.push({ target: { x: plannerPos.x, y: plannerPos.y, z: plannerPos.z }, targetE: tempE, extruding: false, duration: 1000, ...meta });
                     currentMultiColorIndex++;
-                    if (!isPreprocessing) {
-                        currentColorMode = 'multi';
-                        document.getElementById('color-mode').value = 'multi';
-                    }
+
+                    currentColorMode = 'multi';
+                    document.getElementById('color-mode').value = 'multi';
                     break;
                 }
                 case 'T0': case 'T1': case 'T2': case 'T3': {
                     const toolIdx = parseInt(command.substring(1));
                     if (!isNaN(toolIdx)) {
-                        currentMultiColorIndex = toolIdx;
-                        if (!isPreprocessing) {
+                        if (currentMultiColorIndex !== toolIdx) {
+                            currentMultiColorIndex = toolIdx;
                             currentColorMode = 'multi';
                             document.getElementById('color-mode').value = 'multi';
                         }
