@@ -327,14 +327,6 @@ export class PrintExecutor {
         if (cmd === 'M104') {
             if (words.S !== undefined) {
                 this.core.temps.hotendTarget = clamp(words.S, 0, this.core.settings.hotendMax);
-                // If the target is 0, it means we cancel any pending wait for the hotend.
-                if (this.core.temps.hotendTarget === 0) {
-                    this.core.waitingHotend = 0;
-                    if (this._pendingWait && !this._pendingWait.isBed) {
-                        this.blocked = false;
-                        this._pendingWait = null;
-                    }
-                }
             }
             this.plan.push({ type: 'immediate', cmd, words, rawLine, lineNum, onComplete });
             return;
@@ -343,14 +335,6 @@ export class PrintExecutor {
         if (cmd === 'M140') {
             if (words.S !== undefined) {
                 this.core.temps.bedTarget = clamp(words.S, 0, this.core.settings.bedMax);
-                // If the target is 0, it means we cancel any pending wait for the bed.
-                if (this.core.temps.bedTarget === 0) {
-                    this.core.waitingBed = 0;
-                    if (this._pendingWait && this._pendingWait.isBed) {
-                        this.blocked = false;
-                        this._pendingWait = null;
-                    }
-                }
             }
             this.plan.push({ type: 'immediate', cmd, words, rawLine, lineNum, onComplete });
             return;

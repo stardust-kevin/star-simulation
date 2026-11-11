@@ -1809,6 +1809,10 @@ G1 X20 Y20 E20</textarea>
 
         let backendIdleState = null;
 
+        // Buffer queue to prevent main-thread freeze during massive G-code streams
+        let pendingTcpQueue = [];
+        let isProcessingQueue = false;
+
         const textarea = document.getElementById('gcode-input');
         const lineNumbers = document.getElementById('line-numbers');
         const lineHighlight = document.getElementById('line-highlight');
@@ -1973,12 +1977,40 @@ G1 X20 Y20 E20</textarea>
             if (!steppersEnabled) stateStr = "Steppers Off";
             if (thermalRunaway) stateStr = "THERMAL RUNAWAY";
 
+            // --- PROGRESS LOCK LOGIC ---
             let progress = 0;
-            if (isStopped) {
-                progress = 0;
-            } else if (totalSteps > 0) {
+
+            if (typeof window._maxSeenTotal === 'undefined') window._maxSeenTotal = 0;
+            if (typeof window._lastProgress === 'undefined') window._lastProgress = 0;
+
+            // If we have steps in the queue or are running
+            if (!isStopped && totalSteps > 0) {
                 let remain = queued + (activeStep ? 1 : 0);
-                progress = Math.max(0, Math.min(100, ((totalSteps - remain) / totalSteps) * 100));
+                let executed = totalSteps - remain;
+
+                // Lock the maximum denominator (simulates getting the full file upfront)
+                if (window._maxSeenTotal < totalSteps) {
+                    window._maxSeenTotal = totalSteps;
+                }
+
+                let currentProgress = (executed / window._maxSeenTotal) * 100;
+
+                // Anti-reverse lock: only allow progress to go up
+                if (currentProgress > window._lastProgress) {
+                    window._lastProgress = currentProgress;
+                }
+                progress = window._lastProgress;
+            } else {
+                // If stopped, keep the current locked progress unless the buffer is truly empty
+                progress = window._lastProgress;
+            }
+
+            // Reset conditions: fully stopped, no pending TCP buffer, and no local queue
+            const isTcpBufferEmpty = (typeof pendingTcpQueue === 'undefined' || pendingTcpQueue.length === 0);
+            if (isStopped && isTcpBufferEmpty && stepQueue.length === 0 && activeRing.length === 0) {
+                window._maxSeenTotal = 0;
+                window._lastProgress = 0;
+                progress = 0;
             }
 
             setProgress(progress);
@@ -1989,7 +2021,9 @@ G1 X20 Y20 E20</textarea>
             const curLine = lastLineNum || 0;
             const totalEst = estTimeMs / 1000;
             let elapsed = 0;
-            if (jobStartTime > 0 && !isStopped) elapsed = (performance.now() - jobStartTime) / 1000;
+            if (jobStartTime > 0 && !isStopped) {
+                elapsed = (performance.now() - jobStartTime) / 1000;
+            }
             const eta = Math.max(0, totalEst - elapsed);
             const fmtTime = (s) => `${Math.floor(s / 60)}m ${Math.floor(s % 60)}s`;
 
@@ -2002,12 +2036,18 @@ G1 X20 Y20 E20</textarea>
             statusStr += `Fan: P0 ${(fanP0 * 100).toFixed(0)}% (${Math.round(fanP0 * MAX_FAN_RPM)} RPM) | P1 ${(fanP1 * 100).toFixed(0)}% (${Math.round(fanP1 * MAX_FAN_RPM)} RPM) | P2 ${(fanP2 * 100).toFixed(0)}% (${Math.round(fanP2 * MAX_FAN_RPM)} RPM)\n`;
             statusStr += stateStr;
 
-            if (statusEl.innerText !== statusStr) statusEl.innerText = statusStr;
+            if (statusEl.innerText !== statusStr) {
+                statusEl.innerText = statusStr;
+            }
 
             const fanP0Slider = document.getElementById('fan-p0');
             const fanP2Slider = document.getElementById('fan-p2');
-            if (fanP0Slider && document.activeElement !== fanP0Slider) fanP0Slider.value = Math.round(fanP0 * 255);
-            if (fanP2Slider && document.activeElement !== fanP2Slider) fanP2Slider.value = Math.round(fanP2 * 255);
+            if (fanP0Slider && document.activeElement !== fanP0Slider) {
+                fanP0Slider.value = Math.round(fanP0 * 255);
+            }
+            if (fanP2Slider && document.activeElement !== fanP2Slider) {
+                fanP2Slider.value = Math.round(fanP2 * 255);
+            }
             const fanP0Val = document.getElementById('fan-p0-val');
             const fanP1Val = document.getElementById('fan-p1-val');
             const fanP2Val = document.getElementById('fan-p2-val');
@@ -3313,8 +3353,15 @@ G1 X20 Y20 E20</textarea>
                 targetHotend = backendIdleState.hotendTarget;
                 targetBed = backendIdleState.bedTarget;
 
-                PrinterModel.setTemperatureVisual(currentHotend, AMBIENT_TEMP);
-
+                const hotendFactorIdle = Math.max(0, currentHotend - AMBIENT_TEMP) / 230;
+                // Protect against undefined nozzleMat
+                if (typeof nozzleMat !== 'undefined') {
+                    nozzleMat.color.setRGB(
+                        0.6 + hotendFactorIdle * 0.4,
+                        0.6 - hotendFactorIdle * 0.4,
+                        0.6 - hotendFactorIdle * 0.4
+                    );
+                }
                 const bedFactorIdle = Math.max(0, currentBed - AMBIENT_TEMP) / 80;
                 bedMat.color.setRGB(
                     0.16 + bedFactorIdle * 0.4,
@@ -3331,6 +3378,29 @@ G1 X20 Y20 E20</textarea>
 
             let simDt = dt * currentSpeedMult;
 
+            // FIX: Fast-forward temperature at ultra-high speeds (e.g. 2000x)
+            // to prevent PID integral explosion and abnormal temperature jumps.
+            if (simDt > 5.0) {
+                currentHotend = (targetHotend > 1) ? targetHotend : AMBIENT_TEMP;
+                currentBed = (targetBed > 1) ? targetBed : AMBIENT_TEMP;
+                hotendStableTime = 1.0;
+                bedStableTime = 1.0;
+                fanP1 = (currentHotend > 50) ? 1.0 : 0.0;
+
+                const hotendFactor = Math.max(0, currentHotend - AMBIENT_TEMP) / 230;
+                if (typeof nozzleMat !== 'undefined') {
+                    nozzleMat.color.setRGB(0.6 + hotendFactor * 0.4, 0.6 - hotendFactor * 0.4, 0.6 - hotendFactor * 0.4);
+                }
+                const bedFactor = Math.max(0, currentBed - AMBIENT_TEMP) / 80;
+                bedMat.color.setRGB(0.16 + bedFactor * 0.4, 0.16 + bedFactor * 0.1, 0.22 - bedFactor * 0.1);
+
+                if (now - lastUIUpdateTime > 100) {
+                    updateUIState();
+                    lastUIUpdateTime = now;
+                }
+                return;
+            }
+
             if (simDt > 0) {
                 let steps = Math.max(1, Math.min(200, Math.ceil(simDt / 0.05)));
                 let stepDt = simDt / steps;
@@ -3338,6 +3408,7 @@ G1 X20 Y20 E20</textarea>
 
                 for (let i = 0; i < steps; i++) {
                     const prevHotend = currentHotend;
+
                     currentHotend = pidThermalStep(pidHotend, currentHotend, targetHotend, stepDt, 25, 0.008 * fanEffect);
                     currentBed = pidThermalStep(pidBed, currentBed, targetBed, stepDt, 8, 0.004 * fanEffect);
 
@@ -3365,7 +3436,10 @@ G1 X20 Y20 E20</textarea>
                 }
             }
 
-            PrinterModel.setTemperatureVisual(currentHotend, AMBIENT_TEMP);
+            const hotendFactor = Math.max(0, currentHotend - AMBIENT_TEMP) / 230;
+            if (typeof nozzleMat !== 'undefined') {
+                nozzleMat.color.setRGB(0.6 + hotendFactor * 0.4, 0.6 - hotendFactor * 0.4, 0.6 - hotendFactor * 0.4);
+            }
 
             const bedFactor = Math.max(0, currentBed - AMBIENT_TEMP) / 80;
             bedMat.color.setRGB(0.16 + bedFactor * 0.4, 0.16 + bedFactor * 0.1, 0.22 - bedFactor * 0.1);
@@ -3439,24 +3513,72 @@ G1 X20 Y20 E20</textarea>
         evtSource.addEventListener('gcode', (e) => {
             const data = JSON.parse(e.data);
             if (data.source === 'web') return;
-            logTerminal(`>> ${data.line}`, 'cmd');
-            const lines = data.line.split('\n');
-            for (let i = 0; i < lines.length; i++) {
-                const parsed = parseGCodeLine(lines[i], 0);
+
+            // Push incoming lines into the buffer
+            pendingTcpQueue.push(data.line);
+
+            // Start processing loop if not already running
+            if (!isProcessingQueue) {
+                isProcessingQueue = true;
+                setTimeout(processTcpQueue, 10);
+            }
+        });
+
+        function processTcpQueue() {
+            if (pendingTcpQueue.length === 0) {
+                isProcessingQueue = false;
+                return;
+            }
+
+            // Process a batch of 300 lines per frame to keep UI smooth
+            const batch = pendingTcpQueue.splice(0, 300);
+
+            for (let i = 0; i < batch.length; i++) {
+                const line = batch[i];
+
+                // Skip logging raw move commands to prevent terminal DOM freezing
+                const isMove = line.includes('G0') || line.includes('G1');
+                if (!isMove) {
+                    logTerminal(`>> ${line}`, 'cmd');
+                }
+
+                const parsed = parseGCodeLine(line, 0);
                 if (parsed) {
-                    if (isStopped) { stepQueue = []; activeRing = []; }
-                    planCommand(parsed.command, parsed.words, lines[i], 0, parsed.stringData);
+                    if (isStopped) {
+                        stepQueue = [];
+                        activeRing = [];
+                    }
+
+                    planCommand(parsed.command, parsed.words, line, 0, parsed.stringData);
+
                     if (stepQueue.length > 0 || activeRing.length > 0) {
                         if (isStopped) {
-                            isStopped = false; isPaused = false; isAnimating = true; isSingleStep = false;
-                            activeStep = null; lastFrameTime = performance.now(); jobStartTime = performance.now();
+                            isStopped = false;
+                            isPaused = false;
+                            isAnimating = true;
+                            isSingleStep = false;
+                            activeStep = null;
+                            lastFrameTime = performance.now();
+                            jobStartTime = performance.now();
                         }
                         totalSteps = stepQueue.length + activeRing.length;
                     }
                 }
+
+                if (!isMove) {
+                    logTerminal("ok", "ok");
+                }
             }
-            logTerminal("ok", "ok"); updateUIState();
-        });
+
+            updateUIState();
+
+            // Continue processing if there are remaining items
+            if (pendingTcpQueue.length > 0) {
+                setTimeout(processTcpQueue, 10);
+            } else {
+                isProcessingQueue = false;
+            }
+        }
 
         evtSource.addEventListener('state', (e) => {
             const data = JSON.parse(e.data);
