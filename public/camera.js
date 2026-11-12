@@ -1,6 +1,8 @@
 let cameraPc = null;
 let cameraWs = null;
 let isConnecting = false;
+let retryCount = 0;
+const MAX_RETRIES = 5;
 
 function startCameraStream() {
     if (isConnecting || (cameraWs && cameraWs.readyState === WebSocket.OPEN)) return;
@@ -16,6 +18,8 @@ function startCameraStream() {
 
     cameraWs.onopen = () => {
         isConnecting = false;
+        retryCount = 0; // Reset retry count on success
+        console.log('[Camera] Signaling connected.');
         createWebRTCPeer(stream);
     };
 
@@ -35,7 +39,7 @@ function startCameraStream() {
             await cameraPc.setRemoteDescription(new RTCSessionDescription(message));
         }
         else if (message.type === 'ice' && cameraPc) {
-            // FIX: Prevent InvalidStateError if ICE arrives before the remote description (Answer) is set
+            // FIX: Prevent InvalidStateError if ICE arrives before Answer
             if (!cameraPc.remoteDescription) return;
             await cameraPc.addIceCandidate(new RTCIceCandidate(message.candidate));
         }
@@ -51,12 +55,25 @@ function startCameraStream() {
             cameraPc = null;
         }
 
-        console.log('[Camera] Signaling disconnected. Reconnecting in 3s...');
-        setTimeout(startCameraStream, 3000);
+        // FIX: If in background, do not loop reconnect, wait for visibilitychange
+        if (document.hidden) {
+            console.log('[Camera] Disconnected while page is hidden. Will reconnect on focus.');
+            return;
+        }
+
+        if (retryCount >= MAX_RETRIES) {
+            console.warn(`[Camera] Signaling disconnected. Max retries (${MAX_RETRIES}) reached. Please refresh the page.`);
+            return;
+        }
+
+        retryCount++;
+        const delay = Math.min(3000 * Math.pow(2, retryCount - 1), 30000);
+        console.log(`[Camera] Signaling disconnected. Reconnecting in ${delay / 1000}s... (Attempt ${retryCount}/${MAX_RETRIES})`);
+        setTimeout(startCameraStream, delay);
     };
 
     cameraWs.onerror = () => {
-        cameraWs.close(); // Triggers onclose
+        if (cameraWs) cameraWs.close();
     };
 }
 
@@ -67,7 +84,7 @@ async function createWebRTCPeer(stream) {
     stream.getTracks().forEach(track => cameraPc.addTrack(track, stream));
 
     cameraPc.onicecandidate = (event) => {
-        if (event.candidate && cameraWs.readyState === WebSocket.OPEN) {
+        if (event.candidate && cameraWs && cameraWs.readyState === WebSocket.OPEN) {
             cameraWs.send(JSON.stringify({ type: 'ice', candidate: event.candidate }));
         }
     };
@@ -78,3 +95,14 @@ async function createWebRTCPeer(stream) {
 }
 
 window.addEventListener('load', () => setTimeout(startCameraStream, 1500));
+
+// FIX: Force reconnect when user switches back to the tab
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        if (!cameraWs || cameraWs.readyState !== WebSocket.OPEN) {
+            console.log('[Camera] Page returned to foreground. Resetting retries and reconnecting...');
+            retryCount = 0;
+            startCameraStream();
+        }
+    }
+});

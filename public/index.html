@@ -4025,27 +4025,62 @@ M84</textarea>
         });
 
         // 11. BRIDGE
-        const evtSource = new EventSource('/events');
+        // FIX: Refactored SSE to support manual reconnection on tab visibility change
+        let evtSource = null;
         const sseDot = document.getElementById('sse-dot');
-        sseDot.classList.remove('connected', 'disconnected'); sseDot.classList.add('disconnected');
 
-        evtSource.onopen = () => { sseDot.classList.remove('disconnected'); sseDot.classList.add('connected'); };
-        evtSource.onerror = () => { sseDot.classList.remove('connected'); sseDot.classList.add('disconnected'); };
-
-        evtSource.addEventListener('gcode', (e) => {
-            const data = JSON.parse(e.data);
-            if (data.source === 'web') return;
-
-            // Push incoming lines into the buffer
-            pendingTcpQueue.push(data.line);
-
-            // Start processing loop if not already running
-            if (!isProcessingQueue) {
-                isProcessingQueue = true;
-                setTimeout(processTcpQueue, 10);
+        function initSSE() {
+            if (evtSource) {
+                evtSource.close();
             }
-        });
 
+            evtSource = new EventSource('/events');
+            sseDot.classList.remove('connected', 'disconnected');
+            sseDot.classList.add('disconnected');
+
+            evtSource.onopen = () => { sseDot.classList.remove('disconnected'); sseDot.classList.add('connected'); };
+            evtSource.onerror = () => { sseDot.classList.remove('connected'); sseDot.classList.add('disconnected'); };
+
+            evtSource.addEventListener('gcode', (e) => {
+                const data = JSON.parse(e.data);
+                if (data.source === 'web') return;
+
+                // Push incoming lines into the buffer
+                pendingTcpQueue.push(data.line);
+
+                // Start processing loop if not already running
+                if (!isProcessingQueue) {
+                    isProcessingQueue = true;
+                    setTimeout(processTcpQueue, 10);
+                }
+            });
+
+            evtSource.addEventListener('state', (e) => {
+                const data = JSON.parse(e.data);
+                if (Array.isArray(data.fanSpeeds)) {
+                    fanP0 = data.fanSpeeds[0]; fanP1 = data.fanSpeeds[1]; fanP2 = data.fanSpeeds[2]; fanSpeed = fanP0;
+                } else if (data.fanSpeed !== undefined) {
+                    fanP0 = data.fanSpeed; fanSpeed = data.fanSpeed;
+                }
+                if (data.speedFactor !== undefined) firmwareSettings.speedFactor = data.speedFactor;
+                if (data.flowFactor !== undefined) firmwareSettings.flowFactor = data.flowFactor;
+
+                if (isStopped) backendIdleState = data;
+
+                if (isStopped || (!isAnimating && !activeStep)) {
+                    if (Math.abs(plannerPos.x - data.x) > 0.01 || Math.abs(plannerPos.y - data.y) > 0.01 || Math.abs(plannerPos.z - data.z) > 0.01) {
+                        plannerPos.x = data.x; plannerPos.y = data.y; plannerPos.z = data.z;
+                        currentPos.x = data.x; currentPos.y = data.y; currentPos.z = data.z;
+                        updateNozzleTransform();
+                    }
+                    if (data.e !== undefined) {
+                        gcodeState.e = data.e; currentE = data.e;
+                    }
+                }
+            });
+        }
+
+        // Keep the processTcpQueue outside of initSSE (No changes made)
         function processTcpQueue() {
             if (pendingTcpQueue.length === 0) {
                 isProcessingQueue = false;
@@ -4102,26 +4137,15 @@ M84</textarea>
             }
         }
 
-        evtSource.addEventListener('state', (e) => {
-            const data = JSON.parse(e.data);
-            if (Array.isArray(data.fanSpeeds)) {
-                fanP0 = data.fanSpeeds[0]; fanP1 = data.fanSpeeds[1]; fanP2 = data.fanSpeeds[2]; fanSpeed = fanP0;
-            } else if (data.fanSpeed !== undefined) {
-                fanP0 = data.fanSpeed; fanSpeed = data.fanSpeed;
-            }
-            if (data.speedFactor !== undefined) firmwareSettings.speedFactor = data.speedFactor;
-            if (data.flowFactor !== undefined) firmwareSettings.flowFactor = data.flowFactor;
+        // Initial SSE Connection
+        initSSE();
 
-            if (isStopped) backendIdleState = data;
-
-            if (isStopped || (!isAnimating && !activeStep)) {
-                if (Math.abs(plannerPos.x - data.x) > 0.01 || Math.abs(plannerPos.y - data.y) > 0.01 || Math.abs(plannerPos.z - data.z) > 0.01) {
-                    plannerPos.x = data.x; plannerPos.y = data.y; plannerPos.z = data.z;
-                    currentPos.x = data.x; currentPos.y = data.y; currentPos.z = data.z;
-                    updateNozzleTransform();
-                }
-                if (data.e !== undefined) {
-                    gcodeState.e = data.e; currentE = data.e;
+        // FIX: Force reconnect when user switches back to the tab
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                if (!evtSource || evtSource.readyState === EventSource.CLOSED) {
+                    console.log('[SSE] Page returned to foreground. Reconnecting...');
+                    initSSE();
                 }
             }
         });
