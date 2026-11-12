@@ -878,9 +878,11 @@
             </div>
         </div>
 
-        <div class="btn-grid">
+        <div class="btn-grid" style="grid-template-columns: 1fr 1fr 1fr;">
             <button id="btn-import" class="secondary" onclick="document.getElementById('file-upload').click()">📂 <span
                     data-i18n="import">导入</span></button>
+            <button id="btn-preview" class="secondary" onclick="togglePreview()">👁 <span
+                    data-i18n="preview">预览</span></button>
             <button id="btn-clear" class="secondary" onclick="clearPath()">🗑 <span data-i18n="clear">清空</span></button>
         </div>
         <input type="file" id="file-upload" accept=".gcode,.gco,.g" onchange="handleFileUpload(event)">
@@ -907,7 +909,11 @@ G1 X20 Y20 Z0.3 F3000
 G1 X120 Y20 E5
 G1 X120 Y120 E10
 G1 X20 Y120 E15
-G1 X20 Y20 E20</textarea>
+G1 X20 Y20 E20
+M104 S0
+M140 S0
+G28 X0 Y0
+M84</textarea>
             <div class="line-highlight" id="line-highlight"></div>
         </div>
 
@@ -916,7 +922,7 @@ G1 X20 Y20 E20</textarea>
             <div class="slider-container">
                 <div class="slider-header">
                     <span data-i18n="zHeight">Z 轴高度</span>
-                    <span id="slice-val">Z: 0.0 / 380.0 (模型: 0.0mm)</span>
+                    <span id="slice-val">Z: 380.0 / 380.0</span>
                 </div>
                 <div class="slice-progress-track">
                     <div class="slice-model-fill" id="slice-model-fill"></div>
@@ -1013,7 +1019,7 @@ G1 X20 Y20 E20</textarea>
         </details>
 
         <details open id="camera-details">
-            <summary>相机控制 (Camera)</summary>
+            <summary data-i18n="camera">相机控制 (Camera)</summary>
             <div class="param-group" style="grid-template-columns: repeat(3, 1fr); padding-bottom: 0;">
                 <button class="secondary" onclick="moveCamera(0, 0, 10)">Z+</button>
                 <button class="secondary" onclick="moveCamera(0, 10, 0)">Y+</button>
@@ -1023,19 +1029,19 @@ G1 X20 Y20 E20</textarea>
                 <button class="secondary" onclick="moveCamera(-10, 0, 0)">X-</button>
             </div>
             <div class="param-group" style="grid-template-columns: 1fr 2fr; padding-bottom: 4px;">
-                <label>Pan (Y)</label>
+                <label data-i18n="panY">Pan (Y)</label>
                 <div style="display: flex; align-items: center; gap: 4px;">
                     <input type="range" id="cam-pan" min="-180" max="180" value="0" step="0.1"
                         oninput="updateCameraRotation()" style="flex: 1;">
                     <span id="cam-pan-val" style="font-size: 10px; width: 30px; text-align: right;">0°</span>
                 </div>
-                <label>Tilt (X)</label>
+                <label data-i18n="tiltX">Tilt (X)</label>
                 <div style="display: flex; align-items: center; gap: 4px;">
                     <input type="range" id="cam-tilt" min="-90" max="90" value="-72.5" step="0.1"
                         oninput="updateCameraRotation()" style="flex: 1;">
                     <span id="cam-tilt-val" style="font-size: 10px; width: 30px; text-align: right;">-72.5°</span>
                 </div>
-                <label>Roll (Z)</label>
+                <label data-i18n="rollZ">Roll (Z)</label>
                 <div style="display: flex; align-items: center; gap: 4px;">
                     <input type="range" id="cam-roll" min="-180" max="180" value="0" step="0.1"
                         oninput="updateCameraRotation()" style="flex: 1;">
@@ -1045,9 +1051,9 @@ G1 X20 Y20 E20</textarea>
             <div
                 style="padding: 0 6px 6px 6px; display: flex; justify-content: space-between; font-family: monospace; font-size: 11px; color: #00d4ff;">
                 <span>POS: X:<span id="cam-pos-x">110</span> Y:<span id="cam-pos-y">200</span> Z:<span
-                        id="cam-pos-z">220</span></span>
+                        id="cam-pos-z">240</span></span>
                 <label style="color: #fff; cursor: pointer;"><input type="checkbox" id="cam-show-frustum"
-                        onchange="toggleFrustum()"> 显示视野</label>
+                        onchange="toggleFrustum()"> <span data-i18n="showFrustum">显示视野</span></label>
             </div>
             <div style="position: relative; padding: 6px;">
                 <video id="camera-feed" autoplay muted playsinline
@@ -1304,27 +1310,31 @@ G1 X20 Y20 E20</textarea>
 
     <div id="about-modal" class="modal">
         <h4 data-i18n="aboutTitle">关于本软件</h4>
-        <p><b data-i18n="version">版本：</b>v3.3.0 (Pro)</p>
+        <p><b data-i18n="version">版本：</b>v3.4.0 (Pro)</p>
         <p><b data-i18n="intro">简介：</b><span data-i18n="introText">基于单文件 SPA 纯前端架构的高精度 3D 打印机仿真器。深度模拟 Marlin 固件行为、PID
                 热力学及运动学规划。</span></p>
-        <p><b data-i18n="techStack">技术栈：</b>Three.js (3D), Vanilla JS (Logic), SVG Filters (Gooey UI)</p>
+        <p><b data-i18n="techStack">技术栈：</b>Three.js (3D), Vanilla JS (Logic), SVG Filters (Gooey UI), WebRTC</p>
+
         <div
             style="max-height: 180px; overflow-y: auto; background: #1a1a1a; padding: 8px; border-radius: 4px; border: 1px solid #444; margin-top: 10px; font-size: 11px; line-height: 1.5; color: #bbb; text-align: left;">
-            <p style="margin: 0 0 4px 0; font-weight: bold; color: #fff;">v3.3.0 更新日志</p>
+            <p style="margin: 0 0 4px 0; font-weight: bold; color: #fff;" data-i18n="changelog340">v3.4.0 更新日志</p>
             <ul style="margin: 0 0 12px 0; padding-left: 16px;">
-                <li>风扇按标准 Marlin M106/M107 支持 P0/P1/P2 三路；热端风扇增加 EXTRUDER_AUTO_FAN_TEMPERATURE 50°C 门控</li>
-                <li>喷嘴右侧新增 3D 小风扇模型，扇叶随 P0 PWM 旋转</li>
-                <li>G28 与真机一致：Z 抬升 → X/Y/Z 快速归位 + bounce + 二次慢速</li>
-                <li>颜色模式停止或换文件后保留用户上次的手动选择</li>
-                <li>新增 SSE 连接指示灯、G-code 文件拖放、键盘快捷键</li>
-                <li>修复 G-code 编辑器横向溢出无滚动条的问题</li>
+                <li data-i18n="cl340_1">新增 WebRTC 虚拟相机推流，支持 6 自由度控制和视锥体相交染色</li>
+                <li data-i18n="cl340_2">修复大文件导入及 2000x 极速下的浏览器卡顿与断层问题</li>
+                <li data-i18n="cl340_3">新增 Python WebRTC 测试客户端及 uv 环境管理</li>
+                <li data-i18n="cl340_4">修复 TCP 连接超时断开、高温报警及 M140 S0 退火竞态 Bug</li>
             </ul>
-            <p style="margin: 0 0 4px 0; font-weight: bold; color: #fff;">v3.2.6 更新日志</p>
+            <p style="margin: 0 0 4px 0; font-weight: bold; color: #fff;" data-i18n="changelog330">v3.3.0 更新日志</p>
             <ul style="margin: 0 0 12px 0; padding-left: 16px;">
-                <li>修复计算层数时将“纯 E 轴测试挤出”误算为打印层数的问题</li>
-                <li>优化拉丝防断裂效果，强制延长渐隐距离</li>
+                <li data-i18n="cl330_1">风扇按标准 Marlin M106/M107 支持 P0/P1/P2 三路；热端风扇增加 50°C 门控</li>
+                <li data-i18n="cl330_2">喷嘴右侧新增 3D 小风扇模型，扇叶随 P0 PWM 旋转</li>
+                <li data-i18n="cl330_3">G28 与真机一致：Z 抬升 → X/Y/Z 快速归位 + bounce + 二次慢速</li>
+                <li data-i18n="cl330_4">颜色模式停止或换文件后保留用户上次的手动选择</li>
+                <li data-i18n="cl330_5">新增 SSE 连接指示灯、G-code 文件拖放、键盘快捷键</li>
+                <li data-i18n="cl330_6">修复 G-code 编辑器横向溢出无滚动条的问题</li>
             </ul>
         </div>
+
         <button class="close-btn" data-i18n="close" onclick="toggleAbout()">关闭</button>
     </div>
 
@@ -1357,7 +1367,23 @@ G1 X20 Y20 E20</textarea>
                 helpSec3: "三、面板参数", helpSpeedMult: "0.1x – 2000x。作用于浏览器本地播放与后端虚拟时钟，Hermes 的 TCP 指令跟随同一速度。", helpColorMode: "Z 渐变 / 彩虹 / 单色 / 多色。多色模式下响应 M600 与 T0–T3。停止或换文件后保留上次选择。", helpFan: "P0 模型风扇、P1 热端风扇（≥50°C 强制 100%，auto）、P2 控制器风扇。滑块发 M106 P<n> S<0-255>。", helpSlice: "拖动裁剪平面查看模型内部。下方淡蓝条表示模型总高占床高的比例。", helpStats: "耗时、线材长度（m）、重量（g，密度 1.24g/cm³）、层数。由 G-code 预分析得出。", helpJog: "X± / Y± / Z± 6 个方向，Home 执行完整 G28 序列。", helpTerminal: "直接输入任意 Marlin G-code。M105/M114/M115/M119/M503 会返回查询结果。", helpQuality: "层高、外壳厚度、回抽开关（从 G-code 头注释自动填充）。", helpInfill: "底部/顶部厚度、填充密度（%）。", helpSpeedTemp: "打印速度、热端温度、热床温度。运行前未显式指定时，作为预热目标。", helpSupport: "支撑类型与平台附着类型，仅用于面板回填，不参与仿真。", helpMaterial: "线材直径与流量倍率（对应 M221）。", helpMachine: "喷嘴直径、床 X/Y/Z。改变后会即时重建 3D 工作区与裁剪平面。",
                 helpSec4: "四、快捷键", helpKeySpace: "运行 / 暂停（焦点不在输入框时）。", helpKeyEsc: "停止播放。", helpKeyHome: "执行 G28。", helpKeyTerminal: "在终端输入框发送当前指令。",
                 helpSec5: "五、状态栏与固件协议", helpStat1: "当前逻辑坐标与累计挤出量。", helpStat2: "执行队列长度 / 环形缓冲区占用。", helpStat3: "热端 / 热床 当前温度 / 目标温度。", helpStat4: "当前进给速度（mm/min）。", helpStat5: "速度倍率（M220）与流量倍率（M221）。", helpStat6: "P0 / P1 / P2 三路风扇 PWM 百分比与估算转速。", helpStat7: "播放状态。固件协议文本（ok T:、ok X: 等）保持英文以对齐真机。",
-                toastFileLoaded: "文件读取成功！参数已同步，点击 '运行' 开始仿真。", toastSoftEndstop: "触发软限位", toastM108Skip: "M108: 跳过温度等待", toastPaused: "已暂停，点击继续", toastColdExtrude: "低温挤出已阻止", toastThermalRunaway: "热失控：加热器已禁用", toastEepromSaved: "设置已保存", toastEepromLoaded: "设置已加载", toastEepromDefault: "已恢复出厂设置"
+                toastFileLoaded: "文件读取成功！参数已同步，点击 '运行' 开始仿真。", toastSoftEndstop: "触发软限位", toastM108Skip: "M108: 跳过温度等待", toastPaused: "已暂停，点击继续", toastColdExtrude: "低温挤出已阻止", toastThermalRunaway: "热失控：加热器已禁用", toastEepromSaved: "设置已保存", toastEepromLoaded: "设置已加载", toastEepromDefault: "已恢复出厂设置",
+                camera: "相机控制 (Camera)", showFrustum: "显示视野",
+                panY: "平移 (Y)", tiltX: "俯仰 (X)", rollZ: "翻滚 (Z)", modelHeight: "模型",
+                preview: "预览",
+                version: "版本：",
+                changelog340: "v3.4.0 更新日志",
+                cl340_1: "新增 WebRTC 虚拟相机推流，支持 6 自由度控制和视锥体相交染色",
+                cl340_2: "修复大文件导入及 2000x 极速下的浏览器卡顿与断层问题",
+                cl340_3: "新增 Python WebRTC 测试客户端及 uv 环境管理",
+                cl340_4: "修复 TCP 连接超时断开、高温报警及 M140 S0 退火竞态 Bug",
+                changelog330: "v3.3.0 更新日志",
+                cl330_1: "风扇按标准 Marlin M106/M107 支持 P0/P1/P2 三路；热端风扇增加 50°C 门控",
+                cl330_2: "喷嘴右侧新增 3D 小风扇模型，扇叶随 P0 PWM 旋转",
+                cl330_3: "G28 与真机一致：Z 抬升 → X/Y/Z 快速归位 + bounce + 二次慢速",
+                cl330_4: "颜色模式停止或换文件后保留用户上次的手动选择",
+                cl330_5: "新增 SSE 连接指示灯、G-code 文件拖放、键盘快捷键",
+                cl330_6: "修复 G-code 编辑器横向溢出无滚动条的问题"
             },
             en: {
                 title: "3D Printer Simulator", run: "Run", pause: "Pause", resume: "Resume", stop: "Stop", import: "Import", clear: "Clear", step: "Step",
@@ -1383,7 +1409,23 @@ G1 X20 Y20 E20</textarea>
                 helpSec3: "3. Panel parameters", helpSpeedMult: "0.1x – 2000x. Drives both browser playback and backend virtual clock; Hermes TCP commands follow the same speed.", helpColorMode: "Gradient / Rainbow / Single / Multi. Multi responds to M600 and T0–T3. The selection is preserved across stop and reload.", helpFan: "P0 model fan, P1 hotend fan (>=50C forced 100%, auto), P2 controller fan. Sliders send M106 P<n> S<0-255>.", helpSlice: "Drag the clipping plane to inspect the model. The light-blue bar below shows model height vs. bed height.", helpStats: "Time, filament length (m), weight (g, density 1.24g/cm3), layer count. Derived from G-code pre-analysis.", helpJog: "X+- / Y+- / Z+- six directions; Home runs the full G28 sequence.", helpTerminal: "Send any Marlin G-code. M105/M114/M115/M119/M503 return status lines.", helpQuality: "Layer height, wall thickness, retraction (filled from G-code header comments).", helpInfill: "Top/bottom thickness and infill density (%).", helpSpeedTemp: "Print speed, hotend target, bed target. Used as preheat defaults when not specified in G-code.", helpSupport: "Support type and plate adhesion type. Panel-only, not simulated.", helpMaterial: "Filament diameter and flow multiplier (M221).", helpMachine: "Nozzle size, bed X/Y/Z. Changing these rebuilds the 3D volume and clipping plane.",
                 helpSec4: "4. Keyboard shortcuts", helpKeySpace: "Run / Pause (when focus is not in an input field).", helpKeyEsc: "Stop playback.", helpKeyHome: "Trigger G28.", helpKeyTerminal: "Send the current terminal command.",
                 helpSec5: "5. Status bar & firmware protocol", helpStat1: "Logical coordinates and accumulated E.", helpStat2: "Executor queue length / ring buffer occupancy.", helpStat3: "Hotend / bed current / target temperatures.", helpStat4: "Current feedrate (mm/min).", helpStat5: "Speed factor (M220) and flow factor (M221).", helpStat6: "P0 / P1 / P2 fan PWM percentages and estimated RPM.", helpStat7: "Playback state. Firmware protocol strings (ok T:, ok X:, etc.) are kept in English to match the physical printer.",
-                toastFileLoaded: "File loaded. Parameters synced. Click Run to start.", toastSoftEndstop: "Soft endstop triggered", toastM108Skip: "M108: temperature wait skipped", toastPaused: "Paused. Click Resume to continue.", toastColdExtrude: "Cold extrusion prevented", toastThermalRunaway: "Thermal runaway: heater disabled", toastEepromSaved: "Settings saved to EEPROM", toastEepromLoaded: "Settings loaded from EEPROM", toastEepromDefault: "Factory defaults restored"
+                toastFileLoaded: "File loaded. Parameters synced. Click Run to start.", toastSoftEndstop: "Soft endstop triggered", toastM108Skip: "M108: temperature wait skipped", toastPaused: "Paused. Click Resume to continue.", toastColdExtrude: "Cold extrusion prevented", toastThermalRunaway: "Thermal runaway: heater disabled", toastEepromSaved: "Settings saved to EEPROM", toastEepromLoaded: "Settings loaded from EEPROM", toastEepromDefault: "Factory defaults restored",
+                camera: "Camera Control", showFrustum: "Show Frustum",
+                panY: "Pan (Y)", tiltX: "Tilt (X)", rollZ: "Roll (Z)", modelHeight: "Model",
+                preview: "Preview",
+                version: "Version:",
+                changelog340: "v3.4.0 Changelog",
+                cl340_1: "Added WebRTC virtual camera streaming with 6-DOF control and frustum intersection rendering",
+                cl340_2: "Fixed browser freezing and path tearing during large file imports and 2000x speeds",
+                cl340_3: "Added Python WebRTC test client and uv environment management",
+                cl340_4: "Fixed TCP timeout, thermal runaway, and M140 S0 race condition bugs",
+                changelog330: "v3.3.0 Changelog",
+                cl330_1: "Fans support P0/P1/P2 via Marlin M106/M107; added 50°C auto-fan gate for hotend",
+                cl330_2: "Added 3D small fan model on the right of the nozzle, blades rotate with P0 PWM",
+                cl330_3: "G28 aligns with real machine: Z lift -> X/Y/Z fast home + bounce + slow second touch",
+                cl330_4: "Color mode preserves user's manual selection after stopping or changing files",
+                cl330_5: "Added SSE connection indicator, G-code drag-and-drop, and keyboard shortcuts",
+                cl330_6: "Fixed missing horizontal scrollbar in G-code editor"
             }
         };
         let currentLang = navigator.language.startsWith('zh') ? 'zh' : 'en';
@@ -1542,7 +1584,8 @@ G1 X20 Y20 E20</textarea>
 
         sliceSlider.addEventListener('input', (e) => {
             const z = parseFloat(e.target.value);
-            sliceVal.innerText = `Z: ${z.toFixed(1)} / ${MAX_HEIGHT.toFixed(1)} (模型: ${maxModelZ.toFixed(1)}mm)`;
+            const modelLabel = i18n[currentLang].modelHeight || 'Model';
+            sliceVal.innerText = `Z: ${z.toFixed(1)} / ${MAX_HEIGHT.toFixed(1)} (${modelLabel}: ${maxModelZ.toFixed(1)}mm)`;
             clipPlane.constant = z;
             slicePlaneMesh.position.y = z;
         });
@@ -1610,7 +1653,8 @@ G1 X20 Y20 E20</textarea>
 
             sliceSlider.max = MAX_HEIGHT;
             sliceSlider.value = MAX_HEIGHT;
-            sliceVal.innerText = `Z: ${MAX_HEIGHT.toFixed(1)} / ${MAX_HEIGHT.toFixed(1)} (模型: ${maxModelZ.toFixed(1)}mm)`;
+            const modelLabelInit = i18n[currentLang].modelHeight || 'Model';
+            sliceVal.innerText = `Z: ${MAX_HEIGHT.toFixed(1)} / ${MAX_HEIGHT.toFixed(1)} (${modelLabelInit}: ${maxModelZ.toFixed(1)}mm)`;
             clipPlane.constant = MAX_HEIGHT;
             slicePlaneMesh.position.y = MAX_HEIGHT;
             slicePlaneMesh.position.x = BED_WIDTH / 2;
@@ -1674,17 +1718,22 @@ G1 X20 Y20 E20</textarea>
         ];
 
         document.getElementById('color-mode').addEventListener('change', (e) => {
-            currentColorMode = e.target.value;
+            if (isPreviewMode) {
+                previewColorMode = e.target.value;
+                renderFullPreview(); // Update preview instantly
+            } else {
+                currentColorMode = e.target.value;
+            }
         });
 
-        function getColorForZ(z) {
-            if (currentColorMode === 'single') {
+        function getColorForZ(z, mode = currentColorMode) {
+            if (mode === 'single') {
                 return [0.9, 0.9, 0.9];
-            } else if (currentColorMode === 'rainbow') {
+            } else if (mode === 'rainbow') {
                 const hue = (z / 50) % 1.0;
                 const color = new THREE.Color().setHSL(hue, 0.9, 0.6);
                 return [color.r, color.g, color.b];
-            } else if (currentColorMode === 'multi') {
+            } else if (mode === 'multi') {
                 if (mixColors.length > 0) {
                     let r = 0, g = 0, b = 0, total = 0;
                     for (let i = 0; i < mixColors.length; i++) {
@@ -2068,6 +2117,16 @@ G1 X20 Y20 E20</textarea>
         let isProcessingQueue = false;
 
         const textarea = document.getElementById('gcode-input');
+        // Add this right after: const textarea = document.getElementById('gcode-input');
+        let previewUpdateTimer = null;
+        textarea.addEventListener('input', () => {
+            if (isPreviewMode) {
+                clearTimeout(previewUpdateTimer);
+                previewUpdateTimer = setTimeout(() => {
+                    renderFullPreview();
+                }, 500); // 500ms debounce to prevent UI freeze while typing
+            }
+        });
         const lineNumbers = document.getElementById('line-numbers');
         const lineHighlight = document.getElementById('line-highlight');
         const LINE_HEIGHT = 15.4;
@@ -2180,17 +2239,45 @@ G1 X20 Y20 E20</textarea>
             });
         }
 
+        let isPreviewMode = false;
+        let previewColorMode = 'single'; // Independent color mode for preview
+        let previewSegmentCount = 0;
+        const previewPositions = new Float32Array(MAX_SEGMENTS * 6);
+        const previewColors = new Float32Array(MAX_SEGMENTS * 6);
+        const previewGeometry = new THREE.BufferGeometry();
+        previewGeometry.setAttribute('position', new THREE.BufferAttribute(previewPositions, 3));
+        previewGeometry.setAttribute('color', new THREE.BufferAttribute(previewColors, 3));
+        previewGeometry.setDrawRange(0, 0);
+
+        const previewMat = new THREE.LineBasicMaterial({
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.35,
+            linewidth: 2,
+            clippingPlanes: [clipPlane], // FIX: Respect the layer clipping slider
+            clipIntersection: false
+        });
+        const previewLine = new THREE.LineSegments(previewGeometry, previewMat);
+        previewLine.frustumCulled = false;
+        scene.add(previewLine);
+
         function updateSliceModelFill() {
             const fill = document.getElementById('slice-model-fill');
             if (!fill) return;
+
             const denom = Math.max(1, MAX_HEIGHT);
             const pct = Math.min(100, Math.max(0, (maxModelZ / denom) * 100));
             const rounded = Math.round(pct * 10) / 10;
-            if (rounded === lastSliceFillPct) return;
-            lastSliceFillPct = rounded;
-            fill.style.width = rounded + '%';
+
+            if (rounded !== lastSliceFillPct) {
+                lastSliceFillPct = rounded;
+                fill.style.width = rounded + '%';
+            }
+
             const z = parseFloat(sliceSlider.value) || 0;
-            const text = `Z: ${z.toFixed(1)} / ${MAX_HEIGHT.toFixed(1)} (模型: ${maxModelZ.toFixed(1)}mm)`;
+            const modelLabel = i18n[currentLang].modelHeight || 'Model';
+            const text = `Z: ${z.toFixed(1)} / ${MAX_HEIGHT.toFixed(1)} (${modelLabel}: ${maxModelZ.toFixed(1)}mm)`;
+
             if (text !== lastSliceText) {
                 lastSliceText = text;
                 sliceVal.innerText = text;
@@ -2317,13 +2404,152 @@ G1 X20 Y20 E20</textarea>
         }
 
         function clearPath() {
+            // FIX: Use togglePreview to ensure UI state (like color dropdown) is restored properly
+            if (isPreviewMode) {
+                togglePreview();
+            }
+
             segmentCount = 0; lastExtrudePoint = null;
             leakPoint = null; leakDist = 0;
             pathGeometry.setDrawRange(0, 0);
             pathGeometry.attributes.position.needsUpdate = true;
             pathGeometry.attributes.color.needsUpdate = true;
+
+            // Clear preview geometry as well
+            previewSegmentCount = 0;
+            previewGeometry.setDrawRange(0, 0);
+            previewLine.visible = false;
+
             setProgress(0);
             updateUIState();
+        }
+
+        // Toggle Preview Mode
+        function togglePreview() {
+            const btn = document.getElementById('btn-preview');
+            if (!btn) return;
+
+            if (isPreviewMode) {
+                isPreviewMode = false;
+                btn.className = "secondary";
+                if (typeof previewLine !== 'undefined') previewLine.visible = false;
+
+                // Restore UI to the printing color mode when preview closes
+                document.getElementById('color-mode').value = currentColorMode;
+            } else {
+                isPreviewMode = true;
+                btn.className = "primary";
+
+                // Sync UI to preview color mode when preview opens
+                document.getElementById('color-mode').value = previewColorMode;
+                renderFullPreview();
+            }
+        }
+
+        function renderFullPreview() {
+            if (!isPreviewMode) return;
+
+            if (typeof previewGeometry === 'undefined') {
+                console.error("Preview geometry not initialized!");
+                return;
+            }
+
+            previewSegmentCount = 0;
+
+            const text = textarea.value;
+            const lines = text.split('\n');
+
+            // 1. Backup current state strictly
+            const originalPlannerPos = { ...plannerPos };
+            const originalGcodeState = { ...gcodeState };
+            const originalStepQueue = stepQueue;
+
+            // Backup Color states
+            const originalColorMode = currentColorMode;
+            const originalMultiColorIndex = currentMultiColorIndex;
+            const originalMixColors = [...mixColors];
+
+            // 2. Reset state for pure parsing
+            plannerPos.x = 0; plannerPos.y = 0; plannerPos.z = 0;
+            gcodeState.e = 0;
+            gcodeState.absolutePosition = true;
+            gcodeState.absoluteExtrusion = true;
+            gcodeState.absoluteArcCenter = false;
+            gcodeState.unitScale = 1.0;
+
+            // 3. Temporarily hijack stepQueue
+            stepQueue = [];
+
+            // Disable preprocessing flags to prevent UI side-effects
+            const oldPreprocess = typeof isPreprocessing !== 'undefined' ? isPreprocessing : false;
+            if (typeof isPreprocessing !== 'undefined') isPreprocessing = true;
+
+            try {
+                for (let i = 0; i < lines.length; i++) {
+                    const parsed = parseGCodeLine(lines[i], i + 1);
+                    if (parsed) planCommand(parsed.command, parsed.words, lines[i], i + 1, parsed.stringData);
+                }
+            } catch (err) {
+                console.error("Preview parsing error:", err);
+            }
+
+            if (typeof isPreprocessing !== 'undefined') isPreprocessing = oldPreprocess;
+
+            // 4. Extract segments from the generated queue
+            let lastP = null;
+            for (let s = 0; s < stepQueue.length; s++) {
+                const step = stepQueue[s];
+
+                if (!step.type && step.from && step.target) {
+                    if (step.extruding) {
+                        if (!lastP) {
+                            // FIX: Draw the very first extruding move (starts from step.from)
+                            const i = previewSegmentCount * 6;
+                            previewPositions[i] = step.from.x; previewPositions[i + 1] = step.from.z; previewPositions[i + 2] = step.from.y;
+                            previewPositions[i + 3] = step.target.x; previewPositions[i + 4] = step.target.z; previewPositions[i + 5] = step.target.y;
+
+                            const col = getColorForZ(step.target.z, previewColorMode);
+                            previewColors[i] = col[0]; previewColors[i + 1] = col[1]; previewColors[i + 2] = col[2];
+                            previewColors[i + 3] = col[0]; previewColors[i + 4] = col[1]; previewColors[i + 5] = col[2];
+
+                            previewSegmentCount++;
+                        } else {
+                            // Draw subsequent segments (starts from lastP)
+                            const i = previewSegmentCount * 6;
+                            previewPositions[i] = lastP.x; previewPositions[i + 1] = lastP.z; previewPositions[i + 2] = lastP.y;
+                            previewPositions[i + 3] = step.target.x; previewPositions[i + 4] = step.target.z; previewPositions[i + 5] = step.target.y;
+
+                            const col = getColorForZ(step.target.z, previewColorMode);
+                            previewColors[i] = col[0]; previewColors[i + 1] = col[1]; previewColors[i + 2] = col[2];
+                            previewColors[i + 3] = col[0]; previewColors[i + 4] = col[1]; previewColors[i + 5] = col[2];
+
+                            previewSegmentCount++;
+                        }
+                        lastP = step.target;
+                    } else {
+                        lastP = null; // Lift pen on travel
+                    }
+                }
+            }
+
+            // 5. Restore original state perfectly
+            stepQueue = originalStepQueue;
+            plannerPos.x = originalPlannerPos.x; plannerPos.y = originalPlannerPos.y; plannerPos.z = originalPlannerPos.z;
+            Object.assign(gcodeState, originalGcodeState);
+
+            // Restore Color states to prevent UI hijacking
+            currentColorMode = originalColorMode;
+            currentMultiColorIndex = originalMultiColorIndex;
+            mixColors = originalMultiColorIndex !== undefined ? originalMixColors : [];
+
+            // 6. Update geometry
+            previewGeometry.setDrawRange(0, previewSegmentCount * 2);
+            previewGeometry.attributes.position.needsUpdate = true;
+            previewGeometry.attributes.color.needsUpdate = true;
+
+            if (typeof previewLine !== 'undefined') {
+                previewLine.visible = true;
+            }
         }
 
         function computeDuration(distance, feedrate, dvec, isExtruding) {
@@ -3247,12 +3473,14 @@ G1 X20 Y20 E20</textarea>
                         lastExtrudePoint = null; leakPoint = null;
                     } else {
                         const pxx = currentPos.x, pyy = currentPos.z, pzz = currentPos.y;
+
                         if (lastExtrudePoint === null) {
                             lastExtrudePoint = { x: pxx, y: pyy, z: pzz };
                         } else {
                             const distSq = (pxx - lastExtrudePoint.x) ** 2 + (pyy - lastExtrudePoint.y) ** 2 + (pzz - lastExtrudePoint.z) ** 2;
                             if (distSq > 0.0001) {
-                                const col = getColorForZ(pzz);
+                                // FIX: Use the actual printer Z coordinate for the rainbow gradient
+                                const col = getColorForZ(currentPos.z);
                                 if (pushSegment(lastExtrudePoint.x, lastExtrudePoint.y, lastExtrudePoint.z, pxx, pyy, pzz, col[0], col[1], col[2])) {
                                     bufferUpdated = true;
                                 }
@@ -3545,7 +3773,11 @@ G1 X20 Y20 E20</textarea>
                 textarea.value = e.target.result;
                 lastLineNumberCount = -1;
                 preprocessGCode(e.target.result);
-                window.showToast(t('toastFileLoaded'), 'success');
+
+                // Update preview if active
+                if (isPreviewMode) renderFullPreview();
+
+                window.showToast("文件读取成功！参数已同步，点击 '运行' 开始仿真。", 'success');
             };
             reader.readAsText(file);
             try { if (event.target) event.target.value = ''; } catch (_) { /* noop */ }
