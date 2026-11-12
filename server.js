@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PrinterCore } from './sim/core.js';
+import { WebSocketServer } from 'ws';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const core = new PrinterCore();
@@ -265,3 +266,31 @@ const tcpServer = net.createServer((socket) => {
 });
 
 tcpServer.listen(TCP_PORT, () => console.log('[TCP] Ready on ' + TCP_PORT));
+
+// --- WEBSOCKET CAMERA SIGNALING ---
+const wss = new WebSocketServer({ server });
+const cameraClients = new Set();
+
+wss.on('connection', (ws) => {
+    console.log('[Camera] Signaling client connected');
+    cameraClients.add(ws);
+
+    // Prevent server crash on abrupt disconnects
+    ws.on('error', (e) => console.error('[Camera] WS Client Error:', e.message));
+
+    ws.on('message', (message) => {
+        const data = message.toString();
+        for (const client of cameraClients) {
+            if (client !== ws && client.readyState === 1) {
+                try { client.send(data); } catch (e) { }
+            }
+        }
+    });
+
+    ws.on('close', () => {
+        console.log('[Camera] Signaling client disconnected');
+        cameraClients.delete(ws);
+    });
+});
+
+wss.on('error', (e) => console.error('[Camera] Server WS Error:', e.message));

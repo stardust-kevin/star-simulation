@@ -771,6 +771,7 @@
 
     <script src="./three.min.js"></script>
     <script src="./model.js"></script>
+    <script src="./camera.js"></script>
 
     <script>
         (function () {
@@ -1008,6 +1009,60 @@ G1 X20 Y20 E20</textarea>
                     onkeydown="if(event.key === 'Enter') sendTerminalCommand()">
                 <button class="secondary" onclick="clearTerminal()" title="Clear Terminal">🗑</button>
                 <button class="secondary" onclick="sendTerminalCommand()">Send</button>
+            </div>
+        </details>
+
+        <details open id="camera-details">
+            <summary>相机控制 (Camera)</summary>
+            <div class="param-group" style="grid-template-columns: repeat(3, 1fr); padding-bottom: 0;">
+                <button class="secondary" onclick="moveCamera(0, 0, 10)">Z+</button>
+                <button class="secondary" onclick="moveCamera(0, 10, 0)">Y+</button>
+                <button class="secondary" onclick="moveCamera(10, 0, 0)">X+</button>
+                <button class="secondary" onclick="moveCamera(0, 0, -10)">Z-</button>
+                <button class="secondary" onclick="moveCamera(0, -10, 0)">Y-</button>
+                <button class="secondary" onclick="moveCamera(-10, 0, 0)">X-</button>
+            </div>
+            <div class="param-group" style="grid-template-columns: 1fr 2fr; padding-bottom: 4px;">
+                <label>Pan (Y)</label>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <input type="range" id="cam-pan" min="-180" max="180" value="0" step="0.1"
+                        oninput="updateCameraRotation()" style="flex: 1;">
+                    <span id="cam-pan-val" style="font-size: 10px; width: 30px; text-align: right;">0°</span>
+                </div>
+                <label>Tilt (X)</label>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <input type="range" id="cam-tilt" min="-90" max="90" value="-72.5" step="0.1"
+                        oninput="updateCameraRotation()" style="flex: 1;">
+                    <span id="cam-tilt-val" style="font-size: 10px; width: 30px; text-align: right;">-72.5°</span>
+                </div>
+                <label>Roll (Z)</label>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <input type="range" id="cam-roll" min="-180" max="180" value="0" step="0.1"
+                        oninput="updateCameraRotation()" style="flex: 1;">
+                    <span id="cam-roll-val" style="font-size: 10px; width: 30px; text-align: right;">0°</span>
+                </div>
+            </div>
+            <div
+                style="padding: 0 6px 6px 6px; display: flex; justify-content: space-between; font-family: monospace; font-size: 11px; color: #00d4ff;">
+                <span>POS: X:<span id="cam-pos-x">110</span> Y:<span id="cam-pos-y">200</span> Z:<span
+                        id="cam-pos-z">220</span></span>
+                <label style="color: #fff; cursor: pointer;"><input type="checkbox" id="cam-show-frustum"
+                        onchange="toggleFrustum()"> 显示视野</label>
+            </div>
+            <div style="position: relative; padding: 6px;">
+                <video id="camera-feed" autoplay muted playsinline
+                    style="width: 100%; border-radius: 4px; border: 1px solid #555; background: #000; cursor: grab; display: block; aspect-ratio: 16/9;"></video>
+                <!-- CSS Crosshair Overlay (Fixed Size) -->
+                <div id="camera-crosshair"
+                    style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; pointer-events: none; display: none; margin-top: 3px;">
+                    <svg width="40" height="40" viewBox="0 0 40 40">
+                        <circle cx="20" cy="20" r="1.5" fill="#00ff00" />
+                        <line x1="20" y1="5" x2="20" y2="15" stroke="#00ff00" stroke-width="1.5" />
+                        <line x1="20" y1="25" x2="20" y2="35" stroke="#00ff00" stroke-width="1.5" />
+                        <line x1="5" y1="20" x2="15" y2="20" stroke="#00ff00" stroke-width="1.5" />
+                        <line x1="25" y1="20" x2="35" y2="20" stroke="#00ff00" stroke-width="1.5" />
+                    </svg>
+                </div>
             </div>
         </details>
 
@@ -1574,6 +1629,7 @@ G1 X20 Y20 E20</textarea>
         // 4. Model & Path Rendering
         // ============================================================
         scene.add(PrinterModel.group);
+        scene.add(PrinterModel.cameraGroup);
 
         const MAX_SEGMENTS = 1000000;
         const segmentPositions = new Float32Array(MAX_SEGMENTS * 6);
@@ -1648,6 +1704,204 @@ G1 X20 Y20 E20</textarea>
                 return [1.0, 0.6 + zRatio * 0.4, 0.1 + zRatio * 0.2];
             }
         }
+
+        // --- Virtual Camera Setup ---
+        const virtualCam = new THREE.PerspectiveCamera(45, 16 / 9, 5, 1000);
+        virtualCam.layers.set(0);
+
+        camera.layers.enable(1);
+        camera.layers.enable(3);
+
+        let camState = { x: 110, y: 200, z: 240, rx: -1.265, ry: 0, rz: 0 };
+        const defaultCamState = { x: 110, y: 200, z: 240, rx: -1.265, ry: 0, rz: 0 };
+
+        // 1. Light cone (frustum-based)
+        const frustumGeo = new THREE.BufferGeometry();
+        const d = 400, fov = 45 * Math.PI / 180, aspect = 16 / 9;
+        const h = 2 * d * Math.tan(fov / 2), w = h * aspect;
+        const hw = w / 2, hh = h / 2;
+        const vertices = new Float32Array([
+            0, 0, 0, -hw, -hh, -d, hw, -hh, -d, 0, 0, 0, hw, -hh, -d, hw, hh, -d,
+            0, 0, 0, hw, hh, -d, -hw, hh, -d, 0, 0, 0, -hw, hh, -d, -hw, -hh, -d,
+            -hw, -hh, -d, -hw, hh, -d, hw, hh, -d, -hw, -hh, -d, hw, hh, -d, hw, -hh, -d
+        ]);
+        frustumGeo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+        const printVolumePlanes = [
+            new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Plane(new THREE.Vector3(0, -1, 0), 380),
+            new THREE.Plane(new THREE.Vector3(1, 0, 0), 0), new THREE.Plane(new THREE.Vector3(-1, 0, 0), 220),
+            new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), new THREE.Plane(new THREE.Vector3(0, 0, -1), 220)
+        ];
+        const frustumMat = new THREE.MeshBasicMaterial({
+            color: 0x00d4ff, transparent: true, opacity: 0.08, side: THREE.DoubleSide,
+            depthWrite: false, blending: THREE.AdditiveBlending, clippingPlanes: printVolumePlanes
+        });
+        const frustumMesh = new THREE.Mesh(frustumGeo, frustumMat);
+        frustumMesh.visible = false; frustumMesh.layers.set(3);
+        scene.add(frustumMesh);
+        // New: Light cone edge lines
+        const frustumEdges = new THREE.LineSegments(
+            new THREE.EdgesGeometry(frustumGeo),
+            new THREE.LineBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.1, clippingPlanes: printVolumePlanes })
+        );
+        frustumEdges.visible = false;
+        frustumEdges.layers.set(3);
+        scene.add(frustumEdges);
+
+        // 2. Volumetric cube + edge lines
+        const boxGeo = new THREE.BoxGeometry(220, 380, 220);
+        const frustumVolumePlanes = [
+            new THREE.Plane(), new THREE.Plane(), new THREE.Plane(),
+            new THREE.Plane(), new THREE.Plane(), new THREE.Plane()
+        ];
+        const volumeMat = new THREE.MeshBasicMaterial({
+            color: 0x00d4ff, transparent: true, opacity: 0.15, side: THREE.FrontSide,
+            depthWrite: false, clippingPlanes: frustumVolumePlanes
+        });
+        const volumeMesh = new THREE.Mesh(boxGeo, volumeMat);
+        volumeMesh.position.set(110, 190, 110);
+        volumeMesh.visible = false; volumeMesh.layers.set(3);
+        scene.add(volumeMesh);
+
+        // 3. Edge line segments
+        const edgesGeo = new THREE.EdgesGeometry(boxGeo);
+        const edgesMat = new THREE.LineBasicMaterial({
+            color: 0x00d4ff, transparent: true, opacity: 0.4, clippingPlanes: frustumVolumePlanes
+        });
+        const volumeEdges = new THREE.LineSegments(edgesGeo, edgesMat);
+        volumeEdges.position.copy(volumeMesh.position);
+        volumeEdges.visible = false; volumeEdges.layers.set(3);
+        scene.add(volumeEdges);
+
+        const frustum = new THREE.Frustum();
+        const projScreenMatrix = new THREE.Matrix4();
+
+        function toggleFrustum() {
+            const visible = document.getElementById('cam-show-frustum').checked;
+            frustumMesh.visible = visible;
+            volumeMesh.visible = visible;
+            volumeEdges.visible = visible;
+            frustumEdges.visible = visible;
+            document.getElementById('camera-crosshair').style.display = visible ? 'block' : 'none';
+            updateVirtualCam();
+        }
+
+        function moveCamera(dx, dy, dz) {
+            camState.x = Math.max(0, Math.min(220, camState.x + dx));
+            camState.y = Math.max(0, Math.min(220, camState.y + dy));
+            camState.z = Math.max(0, Math.min(380, camState.z + dz));
+            updateVirtualCam();
+        }
+
+        function updateCameraRotation() {
+            let panVal = parseFloat(document.getElementById('cam-pan').value);
+            let tiltVal = parseFloat(document.getElementById('cam-tilt').value);
+            let rollVal = parseFloat(document.getElementById('cam-roll').value);
+            if (Math.abs(panVal) < 3) panVal = 0;
+            if (Math.abs(tiltVal) < 3) tiltVal = 0;
+            if (Math.abs(rollVal) < 3) rollVal = 0;
+            document.getElementById('cam-pan').value = panVal;
+            document.getElementById('cam-tilt').value = tiltVal;
+            document.getElementById('cam-roll').value = rollVal;
+            camState.ry = panVal * Math.PI / 180;
+            camState.rx = tiltVal * Math.PI / 180;
+            camState.rz = rollVal * Math.PI / 180;
+            document.getElementById('cam-pan-val').innerText = panVal.toFixed(1) + '°';
+            document.getElementById('cam-tilt-val').innerText = tiltVal.toFixed(1) + '°';
+            document.getElementById('cam-roll-val').innerText = rollVal.toFixed(1) + '°';
+            updateVirtualCam();
+        }
+
+        function updateVirtualCam() {
+            virtualCam.position.set(camState.x, camState.z, camState.y);
+            virtualCam.rotation.set(camState.rx, camState.ry, camState.rz);
+            virtualCam.updateMatrixWorld();
+
+            PrinterModel.updateCameraPose(camState.x, camState.y, camState.z, camState.rx, camState.ry, camState.rz);
+
+            document.getElementById('cam-pos-x').innerText = Math.round(camState.x);
+            document.getElementById('cam-pos-y').innerText = Math.round(camState.y);
+            document.getElementById('cam-pos-z').innerText = Math.round(camState.z);
+
+            frustumMesh.position.copy(virtualCam.position);
+            frustumMesh.rotation.copy(virtualCam.rotation);
+            frustumMesh.updateMatrixWorld();
+
+            frustumEdges.position.copy(virtualCam.position);
+            frustumEdges.rotation.copy(virtualCam.rotation);
+            frustumEdges.updateMatrixWorld();
+
+            projScreenMatrix.multiplyMatrices(virtualCam.projectionMatrix, virtualCam.matrixWorldInverse);
+            frustum.setFromProjectionMatrix(projScreenMatrix);
+            for (let i = 0; i < 6; i++) frustumVolumePlanes[i].copy(frustum.planes[i]);
+        }
+
+        updateVirtualCam();
+
+        // --- Mouse Interaction ---
+        const camFeedEl = document.getElementById('camera-feed');
+        let camMouse = { down: false, pan: false, px: 0, py: 0 };
+
+        camFeedEl.addEventListener('contextmenu', e => e.preventDefault());
+        camFeedEl.addEventListener('mousedown', e => {
+            camMouse.down = true; camMouse.pan = (e.button === 2);
+            camMouse.px = e.clientX; camMouse.py = e.clientY;
+            camFeedEl.style.cursor = 'grabbing';
+        });
+
+        window.addEventListener('mousemove', e => {
+            if (!camMouse.down) return;
+            const dx = e.clientX - camMouse.px, dy = e.clientY - camMouse.py;
+            camMouse.px = e.clientX; camMouse.py = e.clientY;
+
+            if (camMouse.pan) {
+                const right = new THREE.Vector3(1, 0, 0).applyEuler(virtualCam.rotation);
+                const up = new THREE.Vector3(0, 1, 0).applyEuler(virtualCam.rotation);
+                const speed = 0.5;
+                camState.x -= right.x * dx * speed - up.x * dy * speed;
+                camState.y -= right.z * dx * speed - up.z * dy * speed;
+                camState.z -= right.y * dx * speed - up.y * dy * speed;
+            } else {
+                camState.ry -= dx * 0.01; camState.rx -= dy * 0.01;
+                camState.rx = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, camState.rx));
+                let panVal = camState.ry * 180 / Math.PI, tiltVal = camState.rx * 180 / Math.PI;
+                if (Math.abs(panVal) < 3) panVal = 0;
+                if (Math.abs(tiltVal) < 3) tiltVal = 0;
+                document.getElementById('cam-pan').value = panVal.toFixed(1);
+                document.getElementById('cam-tilt').value = tiltVal.toFixed(1);
+                document.getElementById('cam-pan-val').innerText = panVal.toFixed(0) + '°';
+                document.getElementById('cam-tilt-val').innerText = tiltVal.toFixed(0) + '°';
+            }
+            camState.x = Math.max(0, Math.min(220, camState.x));
+            camState.y = Math.max(0, Math.min(220, camState.y));
+            camState.z = Math.max(0, Math.min(380, camState.z));
+            updateVirtualCam();
+        });
+
+        window.addEventListener('mouseup', () => {
+            camMouse.down = false; camFeedEl.style.cursor = 'grab';
+        });
+
+        camFeedEl.addEventListener('wheel', e => {
+            e.preventDefault();
+            const dir = new THREE.Vector3(0, 0, -1).applyEuler(virtualCam.rotation);
+            const speed = 0.05;
+            camState.x += dir.x * e.deltaY * speed;
+            camState.z += dir.y * e.deltaY * speed;
+            camState.y += dir.z * e.deltaY * speed;
+            camState.x = Math.max(0, Math.min(220, camState.x));
+            camState.y = Math.max(0, Math.min(220, camState.y));
+            camState.z = Math.max(0, Math.min(380, camState.z));
+            updateVirtualCam();
+        });
+
+        camFeedEl.addEventListener('dblclick', () => {
+            Object.assign(camState, defaultCamState);
+            document.getElementById('cam-pan').value = 0;
+            document.getElementById('cam-tilt').value = -72.5;
+            document.getElementById('cam-roll').value = 0;
+            updateCameraRotation();
+        });
 
         // ============================================================
         // 5. Camera Control
@@ -1961,7 +2215,11 @@ G1 X20 Y20 E20</textarea>
 
             if (running !== lastLockState) {
                 detailElements.forEach(d => {
-                    if (d.id !== 'terminal-details' && d.id !== 'slice-details' && d.id !== 'stats-details' && d.id !== 'fan-details') {
+                    if (d.id !== 'terminal-details' &&
+                        d.id !== 'slice-details' &&
+                        d.id !== 'stats-details' &&
+                        d.id !== 'fan-details' &&
+                        d.id !== 'camera-details') {
                         d.classList.toggle('disabled-panel', running);
                     }
                 });
@@ -2515,6 +2773,17 @@ G1 X20 Y20 E20</textarea>
 
                         currentColorMode = 'multi';
                         document.getElementById('color-mode').value = 'multi';
+                    }
+                    break;
+                case 'M240':
+                    // Trigger camera snapshot
+                    if (!isPreprocessing) {
+                        const dataUrl = renderer.domElement.toDataURL('image/jpeg', 0.8);
+                        const a = document.createElement('a');
+                        a.href = dataUrl;
+                        a.download = `snapshot_${Date.now()}.jpg`;
+                        a.click();
+                        logTerminal("Camera snapshot saved.", "ok");
                     }
                     break;
                 case 'M600': {
@@ -3450,9 +3719,15 @@ G1 X20 Y20 E20</textarea>
             }
         }
 
+        const camCanvas = document.createElement('canvas');
+        camCanvas.width = 640;
+        camCanvas.height = 360;
+        const camRenderer = new THREE.WebGLRenderer({ canvas: camCanvas, antialias: true });
+        camRenderer.localClippingEnabled = true;
+        window.camCanvas = camCanvas;
+
         function animate(time) {
             requestAnimationFrame(animate);
-
             const dt = (time - (lastAnimateTime || time)) / 1000;
             lastAnimateTime = time;
 
@@ -3460,9 +3735,24 @@ G1 X20 Y20 E20</textarea>
             updateThermalDynamics(time);
             updateCamera();
 
-            PrinterModel.updateFans(dt, fanP0, fanP1, MAX_FAN_RPM);
-
+            // 1. Render main view
             renderer.render(scene, camera);
+
+            // 2. Hide camera model before rendering the virtual camera stream
+            if (typeof PrinterModel !== 'undefined' && PrinterModel.cameraGroup) {
+                PrinterModel.cameraGroup.visible = false;
+            }
+
+            camRenderer.render(scene, virtualCam);
+
+            // 3. Restore camera model for the main view
+            if (typeof PrinterModel !== 'undefined' && PrinterModel.cameraGroup) {
+                PrinterModel.cameraGroup.visible = true;
+            }
+
+            if (typeof PrinterModel !== 'undefined' && PrinterModel.updateFans) {
+                PrinterModel.updateFans(dt, fanP0, fanP1, MAX_FAN_RPM);
+            }
         }
 
         updateLineNumbers(); updateNozzleTransform();

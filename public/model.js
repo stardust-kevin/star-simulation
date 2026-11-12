@@ -131,9 +131,41 @@ const PrinterModel = (function () {
     modelFan.group.rotation.x = Math.PI / 6;
     nozzleGroup.add(modelFan.group);
 
+    // --- 3D Camera Model ---
+    const cameraModelGroup = new THREE.Group();
+    const camBodyMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.5 });
+    const camLensMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2, metalness: 0.8 });
+
+    const camBody = new THREE.Mesh(new THREE.BoxGeometry(20, 14, 14), camBodyMat);
+    cameraModelGroup.add(camBody);
+
+    const camLens = new THREE.Mesh(new THREE.CylinderGeometry(4, 5, 8, 16), camLensMat);
+    camLens.rotation.x = Math.PI / 2;
+    camLens.position.z = -10;
+    cameraModelGroup.add(camLens);
+
+    // Camera only visible on layer 1
+    cameraModelGroup.layers.set(1);
+    
+    // FIX: Decouple camera from nozzle. It's added to the main scene by index.html.
+    // Do NOT add to nozzleGroup.
+    // nozzleGroup.add(cameraModelGroup); 
+
+    cameraModelGroup.position.set(110, 200, 220);
+
     // --- Public API ---
     return {
         group: nozzleGroup,
+
+        cameraGroup: cameraModelGroup,
+
+        // Expose camera controls (Note: y and z are swapped for Three.js world space)
+        updateCameraPose: function (x, y, z, rx, ry, rz) {
+            // x: left-right, y: depth, z: height
+            // Three.js: x = x, y = z, z = y
+            cameraModelGroup.position.set(x, z, y);
+            cameraModelGroup.rotation.set(rx, ry, rz);
+        },
 
         updateTransform: function (x, y, z) {
             nozzleGroup.position.set(x, z, y);
