@@ -35,6 +35,8 @@ function startCameraStream() {
             await cameraPc.setRemoteDescription(new RTCSessionDescription(message));
         }
         else if (message.type === 'ice' && cameraPc) {
+            // FIX: Prevent InvalidStateError if ICE arrives before the remote description (Answer) is set
+            if (!cameraPc.remoteDescription) return;
             await cameraPc.addIceCandidate(new RTCIceCandidate(message.candidate));
         }
     };
@@ -42,6 +44,13 @@ function startCameraStream() {
     // Auto-reconnect on error/close
     cameraWs.onclose = () => {
         isConnecting = false;
+
+        // FIX: Destroy old WebRTC connection to prevent state leaks and ICE conflicts during reconnection
+        if (cameraPc) {
+            cameraPc.close();
+            cameraPc = null;
+        }
+
         console.log('[Camera] Signaling disconnected. Reconnecting in 3s...');
         setTimeout(startCameraStream, 3000);
     };
