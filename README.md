@@ -1,11 +1,42 @@
 # Star Simulation (3D Printer Simulator)
 
-## English
+<!-- Language Switcher / 语言切换 -->
+<p align="center">
+  <a href="#english">English</a> ·
+  <a href="#中文">中文</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License">
+  <img src="https://img.shields.io/badge/Node.js-%3E%3D18.0.0-green" alt="Node.js Version">
+  <img src="https://img.shields.io/badge/Architecture-SIL%20%2F%20Digital%20Twin-purple" alt="Architecture">
+</p>
+
+---
+
+<a id="english"></a>
+
+## 🇬🇧 English
 
 ### Project Overview
 This repository contains a high-precision 3D printer simulator, evolving from a pure single-file SPA prototype (Phase 1) to a production-ready Software-in-the-Loop (SIL) testing platform (Phase 2). 
 
 It acts as a drop-in replacement for physical hardware (e.g., Anet A8 + ESP3D). Host software (like Python-based G-code senders or LLM agents) can interface with this simulator via raw TCP to verify command parsing, kinematic behavior, and thermal physics.
+
+### Quick Start
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Start the Node.js bridge:
+   ```bash
+   node server.js
+   ```
+3. Open the 3D dashboard:
+   ```text
+   http://localhost:3001
+   ```
+4. Connect your host software to `tcp://localhost:8888`. Both the web UI and the host script will now operate in perfect synchronization.
 
 ### Architecture Evolution
 
@@ -15,6 +46,7 @@ Originally encapsulated entirely within a single `index.html`, running purely in
 #### Phase 2: Node.js Bridge & Decoupled Architecture
 To support raw TCP communication for host software, the architecture is now split into a backend service and a web frontend.
 
+```text
 [ Host Software / Python Scripts ]
        │ (Raw TCP: 8888)
        ▼
@@ -24,6 +56,7 @@ To support raw TCP communication for host software, the architecture is now spli
        │ (SSE / HTTP POST: 3001)
        ▼
 [ Web Frontend (index.html) ] <--- 3D Renderer & UI
+```
 
 1. **Node.js Backend (`server.js`)**: The single source of truth. Listens on TCP port `8888` to emulate real hardware, and hosts an HTTP server on port `3001` for the frontend.
 2. **Shared Core (`sim/core.js`)**: Pure ESM logic containing the G-code tokenizer and firmware state machine (handles thermal physics, coordinates, blocking waits).
@@ -64,21 +97,29 @@ To support raw TCP communication for host software, the architecture is now spli
 
 ---
 
-### Quick Start
-1. Start the Node.js bridge:
-   `node server.js`
-2. Open the 3D dashboard:
-   `http://localhost:3001`
-3. Connect your host software to `tcp://localhost:8888`. Both the web UI and the host script will now operate in perfect synchronization.
+<a id="中文"></a>
 
----
-
-## 中文
+## 🇨🇳 中文
 
 ### 项目概述
 本仓库包含了一个高精度 3D 打印机仿真器。它从纯单文件 SPA 原型（阶段一）演进为一个生产级的软件在环（SIL）测试平台（阶段二）。
 
 它可以作为真实硬件（如 Anet A8 + ESP3D）的完美平替。上位机软件（如 Python 编写的脚本或 LLM Agent）可以通过原生 TCP 连接此仿真器，以验证 G-code 解析、运动学行为及热力学模型，而无需物理打印机。
+
+### 快速开始
+1. 安装依赖：
+   ```bash
+   npm install
+   ```
+2. 启动 Node.js 后端服务：
+   ```bash
+   node server.js
+   ```
+3. 在浏览器中打开 3D 仪表盘：
+   ```text
+   http://localhost:3001
+   ```
+4. 将上位机软件连接至 `tcp://localhost:8888`。此时，网页 UI 与上位机脚本将实现完美的实时双向同步。
 
 ### 架构演进
 
@@ -88,6 +129,7 @@ To support raw TCP communication for host software, the architecture is now spli
 #### 阶段二：Node.js 桥接与前后端分离
 为了支持上位机的原生 TCP 通信，现在架构已拆分为后端服务与前端页面。
 
+```text
 [ 上位机脚本 / Python 代码 ]
        │ (原生 TCP: 8888)
        ▼
@@ -97,9 +139,10 @@ To support raw TCP communication for host software, the architecture is now spli
        │ (SSE 推送 / HTTP POST 接口: 3001)
        ▼
 [ 浏览器前端 (index.html) ] <--- 3D 渲染与 UI 仪表盘
+```
 
 1. **Node.js 后端 (`server.js`)**：全系统唯一的“真理源”。监听 TCP `8888` 端口模拟真实硬件；同时启动 HTTP 服务监听 `3001` 端口托管前端。
-2. **共享核心 (`sim/core.js`)**：纯 ESM 模块。包含词法解析器和固件状态机，负责热力学、坐标计算和阻塞指令（如 M109）。
+2. **共享核心 (`sim/core.js`)**：纯 ESM 模块。包含词法解析器和固件状态机，负责热力学、坐标计算和阻塞指令（如 `M109`）。
 3. **浏览器前端 (`index.html`)**：通过 Server-Sent Events (SSE) 接收状态和 G-code 指令，只作为纯粹的渲染器。手动操作的指令会提交给后端统一执行。
 
 ---
@@ -134,12 +177,3 @@ To support raw TCP communication for host software, the architecture is now spli
 #### 5. 多色与渲染模式
 - **颜色模式**：支持单色、Z 轴渐变、彩虹模式和多色模式。
 - **多色响应**：自动响应 `T0-T3` 换刀指令和 `M600` 换料指令，动态更新渲染流。
-
----
-
-### 快速开始
-1. 启动 Node.js 后端服务：
-   `node server.js`
-2. 在浏览器中打开 3D 仪表盘：
-   `http://localhost:3001`
-3. 将上位机软件连接至 `tcp://localhost:8888`。此时，网页 UI 与上位机脚本将实现完美的实时双向同步。
