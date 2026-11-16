@@ -12,6 +12,13 @@
   <img src="https://img.shields.io/badge/Architecture-SIL%20%2F%20Digital%20Twin-purple" alt="Architecture">
 </p>
 
+<!-- Image Showcase / 核心截图展示 -->
+<div align="center">
+  <img src="img/sim_preview.png" width="32%" alt="3D Preview">
+  <img src="img/sim_printing.png" width="32%" alt="Printing Simulation">
+  <img src="img/sim_layer_clipping.png" width="32%" alt="Layer Clipping">
+</div>
+
 ---
 
 <a id="english"></a>
